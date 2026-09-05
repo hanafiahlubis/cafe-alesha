@@ -3,175 +3,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { MenuItem, CartItem, Transaction, CategoryType, PaymentMethod, DailyRecap, StoreInfo } from "@/types/pos";
 
-const INITIAL_MENU: MenuItem[] = [
-  // Minuman
-  {
-    id: "m-1",
-    name: "Kopi Susu Gula Aren",
-    category: "Minuman",
-    price: 18000,
-    description: "Espresso robusta dengan susu segar dan gula aren premium",
-    status: "Tersedia",
-    image: "/images/menu/kopi-susu.jpg",
-  },
-  {
-    id: "m-2",
-    name: "Iced Americano",
-    category: "Minuman",
-    price: 15000,
-    description: "Espresso shot ganda dengan air dingin segar",
-    status: "Tersedia",
-    image: "/images/menu/americano.jpg",
-  },
-  {
-    id: "m-3",
-    name: "Matcha Latte Ice",
-    category: "Minuman",
-    price: 22000,
-    description: "Bubuk matcha Jepang asli dipadu dengan fresh milk",
-    status: "Tersedia",
-    image: "/images/menu/matcha.jpg",
-  },
-  {
-    id: "m-4",
-    name: "Es Teh Manis Jumbo",
-    category: "Minuman",
-    price: 6000,
-    description: "Teh melati wangi diseduh segar ukuran jumbo",
-    status: "Tersedia",
-    image: "/images/menu/es-teh.jpg",
-  },
-  {
-    id: "m-5",
-    name: "Lemon Tea Segar",
-    category: "Minuman",
-    price: 12000,
-    description: "Perasan lemon asli dengan teh hitam pilihan",
-    status: "Tersedia",
-    image: "/images/menu/lemon-tea.jpg",
-  },
-  {
-    id: "m-6",
-    name: "Cokelat Klasik Panas",
-    category: "Minuman",
-    price: 18000,
-    description: "Cokelat leleh lembut dengan taburan bubuk kakao",
-    status: "Habis",
-    image: "/images/menu/cokelat.jpg",
-  },
-
-  // Makanan Ringan
-  {
-    id: "sn-1",
-    name: "Kentang Goreng Crispy",
-    category: "Makanan Ringan",
-    price: 15000,
-    description: "French fries gurih renyah disajikan dengan saus sambal & mayones",
-    status: "Tersedia",
-    image: "/images/menu/kentang.jpg",
-  },
-  {
-    id: "sn-2",
-    name: "Roti Bakar Coklat Keju",
-    category: "Makanan Ringan",
-    price: 16000,
-    description: "Roti tebal dipanggang dengan mentega, coklat melimpah dan parutan keju",
-    status: "Tersedia",
-    image: "/images/menu/roti-bakar.jpg",
-  },
-  {
-    id: "sn-3",
-    name: "Cireng Bumbu Rujak",
-    category: "Makanan Ringan",
-    price: 12000,
-    description: "Cireng kenyal renyah isi 10 pcs dengan cocolan sambal rujak pedas manis",
-    status: "Tersedia",
-    image: "/images/menu/cireng.jpg",
-  },
-  {
-    id: "sn-4",
-    name: "Pisang Goreng Crispy",
-    category: "Makanan Ringan",
-    price: 14000,
-    description: "Pisang raja manis berbalut tepung renyah dengan susu kental manis",
-    status: "Tersedia",
-    image: "/images/menu/pisang-goreng.jpg",
-  },
-  {
-    id: "sn-5",
-    name: "Dimsum Ayam (4 pcs)",
-    category: "Makanan Ringan",
-    price: 18000,
-    description: "Dimsum kukus daging ayam padat disajikan dengan chili oil",
-    status: "Tersedia",
-    image: "/images/menu/dimsum.jpg",
-  },
-  {
-    id: "sn-6",
-    name: "Singkong Keju Merekah",
-    category: "Makanan Ringan",
-    price: 13000,
-    description: "Singkong empuk gurih dengan limpahan keju cheddar",
-    status: "Habis",
-    image: "/images/menu/singkong.jpg",
-  },
-
-  // Makanan Berat
-  {
-    id: "mb-1",
-    name: "Nasi Goreng Spesial",
-    category: "Makanan Berat",
-    price: 25000,
-    description: "Nasi goreng bumbu rempah dengan suwiran ayam, sosis, dan telur mata sapi",
-    status: "Tersedia",
-    image: "/images/menu/nasgor.jpg",
-  },
-  {
-    id: "mb-2",
-    name: "Mie Goreng Seafood",
-    category: "Makanan Berat",
-    price: 27000,
-    description: "Mie telur kenyal ditumis dengan udang, cumi, dan sayuran segar",
-    status: "Tersedia",
-    image: "/images/menu/mie-goreng.jpg",
-  },
-  {
-    id: "mb-3",
-    name: "Ayam Geprek + Nasi",
-    category: "Makanan Berat",
-    price: 22000,
-    description: "Ayam krispi digeprek sambal bawang pedas nampol lengkap dengan nasi hangat",
-    status: "Tersedia",
-    image: "/images/menu/ayam-geprek.jpg",
-  },
-  {
-    id: "mb-4",
-    name: "Nasi Sapi Lada Hitam",
-    category: "Makanan Berat",
-    price: 35000,
-    description: "Daging sapi empuk saus lada hitam gurih pedas dengan paprika dan bawang bombay",
-    status: "Tersedia",
-    image: "/images/menu/sapi-lada-hitam.jpg",
-  },
-  {
-    id: "mb-5",
-    name: "Kwetiau Goreng Sapi",
-    category: "Makanan Berat",
-    price: 28000,
-    description: "Kwetiau wangi aroma wok dengan irisan daging sapi manis gurih",
-    status: "Tersedia",
-    image: "/images/menu/kwetiau.jpg",
-  },
-  {
-    id: "mb-6",
-    name: "Nasi Chicken Katsu Curry",
-    category: "Makanan Berat",
-    price: 30000,
-    description: "Katsu ayam renyah berpadu kuah kari Jepang kental dan nasi pulen",
-    status: "Habis",
-    image: "/images/menu/katsu.jpg",
-  },
-];
+const INITIAL_MENU: MenuItem[] = [];
 
 const DEFAULT_STORE_INFO: StoreInfo = {
   name: "CAFE & RESTO BIRU",
@@ -254,21 +86,21 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!isHydrated) return;
     try {
       localStorage.setItem("pos_menu_list", JSON.stringify(menuList));
-    } catch (e) {}
+    } catch (e) { }
   }, [menuList, isHydrated]);
 
   useEffect(() => {
     if (!isHydrated) return;
     try {
       localStorage.setItem("pos_queue_counter", queueCounter.toString());
-    } catch (e) {}
+    } catch (e) { }
   }, [queueCounter, isHydrated]);
 
   useEffect(() => {
     if (!isHydrated) return;
     try {
       localStorage.setItem("pos_transactions", JSON.stringify(transactions));
-    } catch (e) {}
+    } catch (e) { }
   }, [transactions, isHydrated]);
 
   // Format queue number e.g. #01, #02
@@ -427,7 +259,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsCustomQris(false);
     try {
       localStorage.removeItem("pos_custom_qris_image");
-    } catch (e) {}
+    } catch (e) { }
   };
 
   const updateStoreInfo = (newInfo: Partial<StoreInfo>) => {
@@ -435,7 +267,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const updated = { ...prev, ...newInfo };
       try {
         localStorage.setItem("pos_store_info", JSON.stringify(updated));
-      } catch (e) {}
+      } catch (e) { }
       return updated;
     });
   };

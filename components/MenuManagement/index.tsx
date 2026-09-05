@@ -88,7 +88,7 @@ export const MenuManagement: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F0F7FF] dark:bg-slate-950 pt-16 sm:pt-20 pb-24 lg:pb-16 text-slate-900 dark:text-slate-50 transition-colors duration-200">
+    <div className="min-h-screen bg-[#F0F7FF] dark:bg-slate-950 pt-2 sm:pt-20 pb-2 lg:pb-16 text-slate-900 dark:text-slate-50 transition-colors duration-200">
       <div className="mx-auto max-w-7xl px-2 sm:px-4 lg:px-8 space-y-2.5 sm:space-y-4">
         {/* Page Header */}
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-2xl bg-white dark:bg-slate-900 p-2.5 sm:p-4 shadow-sm border border-blue-100 dark:border-slate-800">
