@@ -1,0 +1,96 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum CategoryType {
+  MINUMAN
+  MAKANAN_RINGAN
+  MAKANAN_BERAT
+}
+
+enum MenuStatus {
+  TERSEDIA
+  HABIS
+}
+
+enum PaymentMethod {
+  CASH
+  QRIS
+}
+
+enum OrderStatus {
+  COMPLETED
+  CANCELLED
+}
+
+model StoreSetting {
+  id               String   @id @default(cuid())
+  storeName        String   @default("CAFE & RESTO BIRU")
+  storeAddress     String?
+  storePhone       String?
+  qrisImageUrl     String?  // URL atau path foto QRIS yang di-upload
+  qrisNmid         String?  @default("ID1020030040050")
+  qrisMerchantName String?  @default("KASIR CAFE & RESTO BIRU")
+  updatedAt        DateTime @updatedAt
+}
+
+model Category {
+  id        String       @id @default(cuid())
+  name      String       @unique
+  slug      String       @unique
+  type      CategoryType
+  menus     Menu[]
+  createdAt DateTime     @default(now())
+}
+
+model Menu {
+  id          String       @id @default(cuid())
+  name        String
+  categoryId  String
+  category    Category     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  price       Decimal      @db.Decimal(12, 2)
+  description String?
+  status      MenuStatus   @default(TERSEDIA)
+  image       String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  orderItems  OrderItem[]
+
+  @@index([categoryId])
+}
+
+model Order {
+  id            String        @id @default(cuid())
+  queueNumber   String        // Nomor antrean otomatis #01, #02... (tanpa nomor meja)
+  totalAmount   Decimal       @db.Decimal(12, 2)
+  paymentMethod PaymentMethod
+  cashReceived  Decimal?      @db.Decimal(12, 2)
+  changeAmount  Decimal?      @db.Decimal(12, 2)
+  status        OrderStatus   @default(COMPLETED)
+  orderDate     DateTime      @default(now())
+  createdAt     DateTime      @default(now())
+  items         OrderItem[]
+
+  @@index([orderDate])
+}
+
+model OrderItem {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuId    String
+  menu      Menu     @relation(fields: [menuId], references: [id])
+  menuName  String
+  price     Decimal  @db.Decimal(12, 2)
+  quantity  Int
+  subtotal  Decimal  @db.Decimal(12, 2)
+
+  @@index([orderId])
+  @@index([menuId])
+}
