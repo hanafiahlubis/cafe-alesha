@@ -6,7 +6,6 @@ import ScrollToTop from "@/components/Common/ScrollToTop";
 import { ThemeProvider } from "@/app/context/ThemeContext";
 import { ToastContext } from "@/app/context/ToastContext";
 import { POSProvider } from "@/context/POSContext";
-// import { MobileBottomNav } from "@/components/Navigation/MobileBottomNav";
 
 export const metadata: Metadata = {
   title: "Aplikasi POS Kasir Modern - Tema Biru Muda & Putih",
@@ -39,6 +38,7 @@ export default function RootLayout({
                   document.documentElement.setAttribute('data-theme', 'light');
                 }
               } catch (e) {}
+               
             })();`,
           }}
         />
@@ -49,7 +49,6 @@ export default function RootLayout({
             <ToastContext />
             <Header />
             <main className="flex-1">{children}</main>
-            {/* <MobileBottomNav /> */}
             <Footer />
             <ScrollToTop />
           </POSProvider>

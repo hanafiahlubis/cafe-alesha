@@ -32,7 +32,6 @@ export const PosTerminal: React.FC = () => {
     "Makanan Berat",
   ];
 
-  // Filtered menu
   const filteredMenu = useMemo(() => {
     return menuList.filter((item) => {
       const matchCategory =
@@ -74,14 +73,13 @@ export const PosTerminal: React.FC = () => {
       case "Makanan Berat":
         return "🍛";
       default:
-        return "🍽️";
+        return "🍴";
     }
   };
 
   return (
     <div className="min-h-screen bg-[#F0F7FF] dark:bg-slate-950 pt-16 sm:pt-20 pb-24 lg:pb-12 text-slate-900 dark:text-slate-50 transition-colors duration-200">
       <div className="mx-auto max-w-7xl px-2 sm:px-4 lg:px-8">
-        {/* Top Info Banner - Ultra compact on mobile to save vertical space */}
         <div className="mb-2.5 sm:mb-4 flex items-center justify-between gap-2 rounded-2xl bg-white dark:bg-slate-900 p-2.5 sm:p-4 shadow-sm border border-blue-100 dark:border-slate-800">
           <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <div className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md shadow-blue-500/20 text-sm sm:text-xl">
@@ -92,12 +90,11 @@ export const PosTerminal: React.FC = () => {
                 Menu Kasir (POS)
               </h1>
               <p className="text-[10px] text-slate-400 truncate hidden sm:block">
-                Pilih menu dan konfirmasi pembayaran
+                Pilih menu dan konfirmasi pembayaran • Terkoneksi NeonDB
               </p>
             </div>
           </div>
 
-          {/* Antrean Otomatis Display */}
           <div className="flex items-center gap-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900 px-2.5 py-1 sm:px-3 sm:py-1.5 shrink-0">
             <div className="text-right">
               <span className="text-[8px] sm:text-[9px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider block">
@@ -114,13 +111,9 @@ export const PosTerminal: React.FC = () => {
           </div>
         </div>
 
-        {/* Main Layout: Grid Catalog + Sticky Cart on Desktop */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-5 items-start">
-          {/* Left Column: Menu Catalog */}
           <div className="lg:col-span-7 xl:col-span-8 space-y-2.5 sm:space-y-4">
-            {/* Category Tabs & Search Bar */}
             <div className="rounded-2xl bg-white dark:bg-slate-900 p-2.5 sm:p-3.5 shadow-sm border border-blue-100 dark:border-slate-800 space-y-2">
-              {/* Category Horizontal Scroll Pills */}
               <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar -mx-0.5 px-0.5">
                 {categories.map((cat) => {
                   const isActive = activeCategory === cat;
@@ -157,7 +150,6 @@ export const PosTerminal: React.FC = () => {
                 })}
               </div>
 
-              {/* Search Bar */}
               <div className="relative">
                 <svg
                   className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400"
@@ -182,7 +174,6 @@ export const PosTerminal: React.FC = () => {
               </div>
             </div>
 
-            {/* Menu Grid: Perfectly fits 320px screens in 2 columns */}
             <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-3.5">
               {filteredMenu.map((item) => {
                 const isHabis = item.status === "Habis";
@@ -197,7 +188,6 @@ export const PosTerminal: React.FC = () => {
                     }`}
                   >
                     <div>
-                      {/* Category & Status Badge - Truncated cleanly to avoid wrapping at 320px */}
                       <div className="flex items-center justify-between gap-1 mb-1">
                         <span className="text-[9px] font-semibold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-1.5 py-0.5 rounded-md truncate max-w-[62%] border border-blue-100/80 dark:border-transparent">
                           {getCategoryIcon(item.category)} {item.category}
@@ -213,7 +203,6 @@ export const PosTerminal: React.FC = () => {
                         )}
                       </div>
 
-                      {/* Name & Description */}
                       <h3 className="font-bold text-slate-900 dark:text-white text-[11px] sm:text-sm group-hover:text-blue-600 transition leading-snug line-clamp-2 min-h-[1.9rem]">
                         {item.name}
                       </h3>
@@ -222,7 +211,6 @@ export const PosTerminal: React.FC = () => {
                       </p>
                     </div>
 
-                    {/* Price & Add Button */}
                     <div className="mt-2 flex items-center justify-between pt-1.5 border-t border-blue-50 dark:border-slate-800 gap-1">
                       <span className="text-[11px] sm:text-sm font-black text-blue-600 dark:text-blue-400 truncate">
                         {formatIDR(item.price)}
@@ -252,16 +240,14 @@ export const PosTerminal: React.FC = () => {
                   Menu Tidak Ditemukan
                 </h4>
                 <p className="text-[11px] text-slate-400 mt-0.5">
-                  Coba kata kunci lain atau tab yang berbeda.
+                  Coba kata kunci lain atau tambah menu baru di tab Kelola Menu.
                 </p>
               </div>
             )}
           </div>
 
-          {/* Right Column: Order Cart (Desktop: Visible, Mobile: Hidden) */}
           <div className="hidden lg:block lg:col-span-5 xl:col-span-4 sticky top-24">
             <div className="rounded-2xl bg-white dark:bg-slate-900 shadow-xl border border-blue-100 dark:border-slate-800 overflow-hidden flex flex-col max-h-[calc(100vh-7rem)]">
-              {/* Cart Header */}
               <div className="p-4 bg-gradient-to-r from-blue-600 to-sky-600 text-white flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="text-xl">🛒</span>
@@ -285,11 +271,10 @@ export const PosTerminal: React.FC = () => {
                 )}
               </div>
 
-              {/* Cart Items List */}
               <div className="flex-1 overflow-y-auto p-4 divide-y divide-blue-50 dark:divide-slate-800">
                 {cart.length === 0 ? (
                   <div className="py-12 text-center space-y-2">
-                    <span className="text-4xl opacity-50">🧾</span>
+                    <span className="text-4xl opacity-50">🛒</span>
                     <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">
                       Keranjang Masih Kosong
                     </p>
@@ -309,7 +294,6 @@ export const PosTerminal: React.FC = () => {
                         </span>
                       </div>
 
-                      {/* Quantity Stepper */}
                       <div className="flex items-center gap-1.5">
                         <button
                           type="button"
@@ -330,7 +314,6 @@ export const PosTerminal: React.FC = () => {
                         </button>
                       </div>
 
-                      {/* Subtotal & Delete */}
                       <div className="text-right min-w-[70px]">
                         <div className="text-xs font-bold text-slate-900 dark:text-white">
                           {formatIDR(item.menuItem.price * item.quantity)}
@@ -348,7 +331,6 @@ export const PosTerminal: React.FC = () => {
                 )}
               </div>
 
-              {/* Cart Footer / Checkout */}
               {cart.length > 0 && (
                 <div className="p-4 bg-sky-50/60 dark:bg-slate-800/80 border-t border-blue-100 dark:border-slate-800 space-y-3">
                   <div className="space-y-1 text-xs">
@@ -382,9 +364,8 @@ export const PosTerminal: React.FC = () => {
         </div>
       </div>
 
-      {/* Floating Bottom Cart Pill on Mobile (lg:hidden) - Positioned cleanly above MobileBottomNav */}
       {cart.length > 0 && (
-        <div className="lg:hidden fixed bottom-[3.75rem] left-2 right-2 sm:left-4 sm:right-4 z-30 animate-fadeIn">
+        <div className="lg:hidden fixed bottom-4 left-2 right-2 sm:left-4 sm:right-4 z-30 animate-fadeIn">
           <button
             type="button"
             onClick={() => setIsMobileCartOpen(true)}
@@ -399,23 +380,20 @@ export const PosTerminal: React.FC = () => {
             <div className="flex items-center gap-1.5 sm:gap-2">
               <span className="text-xs sm:text-sm font-black">{formatIDR(total)}</span>
               <span className="text-[10px] sm:text-xs bg-white text-blue-700 px-2 py-1 rounded-md sm:rounded-lg shadow-sm font-bold">
-                Pesanan 🛒 →
+                Pesanan ↗
               </span>
             </div>
           </button>
         </div>
       )}
 
-      {/* Mobile Cart Bottom Sheet / Drawer Modal */}
       {isMobileCartOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex flex-col justify-end bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
           <div className="w-full max-h-[85vh] rounded-t-3xl bg-white dark:bg-slate-900 shadow-2xl border-t border-blue-100 dark:border-slate-800 flex flex-col overflow-hidden">
-            {/* Handle bar */}
             <div className="pt-2 pb-1 bg-gradient-to-r from-blue-600 to-sky-600">
               <div className="w-10 h-1 bg-white/40 rounded-full mx-auto"></div>
             </div>
 
-            {/* Drawer Header */}
             <div className="p-3.5 bg-gradient-to-r from-blue-600 to-sky-600 text-white flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-lg">🛒</span>
@@ -433,7 +411,6 @@ export const PosTerminal: React.FC = () => {
               </button>
             </div>
 
-            {/* Drawer Items List */}
             <div className="flex-1 overflow-y-auto p-3 divide-y divide-blue-50 dark:divide-slate-800 space-y-1.5">
               {cart.map((item) => (
                 <div key={item.menuItem.id} className="py-2 flex items-center justify-between gap-1.5">
@@ -482,7 +459,6 @@ export const PosTerminal: React.FC = () => {
               ))}
             </div>
 
-            {/* Drawer Checkout Action */}
             <div className="p-3 sm:p-4 bg-sky-50/60 dark:bg-slate-800/80 border-t border-blue-100 dark:border-slate-800 space-y-2 pb-6">
               <div className="flex justify-between items-baseline text-slate-900 dark:text-white">
                 <span className="text-[11px] text-slate-500 font-semibold">Total Tagihan:</span>
@@ -505,7 +481,6 @@ export const PosTerminal: React.FC = () => {
         </div>
       )}
 
-      {/* Payment Modal */}
       <PaymentModal
         isOpen={isPaymentOpen}
         totalAmount={total}
@@ -515,7 +490,6 @@ export const PosTerminal: React.FC = () => {
         onSuccess={handlePaymentSuccess}
       />
 
-      {/* Receipt Pop-up Modal */}
       <ReceiptModal
         transaction={completedTx}
         onClose={() => setCompletedTx(null)}

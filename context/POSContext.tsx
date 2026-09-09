@@ -28,10 +28,10 @@ interface POSContextType {
   updateQuantity: (menuId: string, delta: number) => void;
   removeFromCart: (menuId: string) => void;
   clearCart: () => void;
-  addMenu: (item: Omit<MenuItem, "id">) => void;
-  updateMenu: (item: MenuItem) => void;
-  toggleMenuStatus: (menuId: string) => void;
-  deleteMenu: (menuId: string) => void;
+  addMenu: (item: Omit<MenuItem, "id">) => Promise<void>;
+  updateMenu: (item: MenuItem) => Promise<void>;
+  toggleMenuStatus: (menuId: string) => Promise<void>;
+  deleteMenu: (menuId: string) => Promise<void>;
   completePayment: (method: PaymentMethod, cashReceived?: number) => Transaction;
   getDailyRecap: (dateStr?: string) => DailyRecap;
   resetQueueCounter: () => void;
@@ -53,35 +53,79 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isMobileCartOpen, setIsMobileCartOpen] = useState<boolean>(false);
   const [isHydrated, setIsHydrated] = useState<boolean>(false);
 
-  // Load persisted state from localStorage
+  // 1. Muat data dari localStorage terlebih dahulu (offline-first)
   useEffect(() => {
     try {
       const savedMenu = localStorage.getItem("pos_menu_list");
       if (savedMenu) setMenuList(JSON.parse(savedMenu));
-
       const savedQueue = localStorage.getItem("pos_queue_counter");
       if (savedQueue) setQueueCounter(parseInt(savedQueue, 10));
-
       const savedTx = localStorage.getItem("pos_transactions");
       if (savedTx) setTransactions(JSON.parse(savedTx));
-
       const savedQris = localStorage.getItem("pos_custom_qris_image");
       if (savedQris) {
         setQrisImage(savedQris);
         setIsCustomQris(true);
       }
-
       const savedInfo = localStorage.getItem("pos_store_info");
       if (savedInfo) {
         setStoreInfo(JSON.parse(savedInfo));
       }
     } catch (e) {
-      console.error("Failed to load POS data from localStorage", e);
+      console.error("Gagal membaca cache lokal:", e);
     }
     setIsHydrated(true);
   }, []);
 
-  // Save changes to localStorage
+  // 2. Sinkronkan dengan API NeonDB saat pertama kali dimuat
+  useEffect(() => {
+    async function syncWithNeonDB() {
+      try {
+        // Ambil store settings
+        const settingsRes = await fetch("/api/settings");
+        if (settingsRes.ok) {
+          const sJson = await settingsRes.json();
+          if (sJson.data) {
+            setStoreInfo({
+              name: sJson.data.name,
+              address: sJson.data.address,
+              phone: sJson.data.phone,
+              qrisNmid: sJson.data.qrisNmid,
+              qrisMerchantName: sJson.data.qrisMerchantName,
+            });
+            if (sJson.data.qrisImage) {
+              setQrisImage(sJson.data.qrisImage);
+              setIsCustomQris(sJson.data.isCustomQris);
+            }
+          }
+        }
+
+        // Ambil menus
+        const menusRes = await fetch("/api/menus");
+        if (menusRes.ok) {
+          const mJson = await menusRes.json();
+          if (mJson.data && mJson.data.length > 0) {
+            setMenuList(mJson.data);
+          }
+        }
+
+        // Ambil orders
+        const ordersRes = await fetch("/api/orders");
+        if (ordersRes.ok) {
+          const oJson = await ordersRes.json();
+          if (oJson.data && oJson.data.length > 0) {
+            setTransactions(oJson.data);
+          }
+        }
+      } catch (err) {
+        console.warn("NeonDB API belum dapat dijangkau, menggunakan data lokal:", err);
+      }
+    }
+
+    syncWithNeonDB();
+  }, []);
+
+  // Simpan ke localStorage saat ada perubahan
   useEffect(() => {
     if (!isHydrated) return;
     try {
@@ -103,7 +147,6 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (e) { }
   }, [transactions, isHydrated]);
 
-  // Format queue number e.g. #01, #02
   const currentQueueNumber = `#${queueCounter.toString().padStart(2, "0")}`;
 
   const addToCart = (menuItem: MenuItem) => {
@@ -143,15 +186,29 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setCart([]);
   };
 
-  const addMenu = (item: Omit<MenuItem, "id">) => {
-    const newItem: MenuItem = {
-      ...item,
-      id: `custom-${Date.now()}`,
-    };
+  const addMenu = async (item: Omit<MenuItem, "id">) => {
+    const tempId = `custom-${Date.now()}`;
+    const newItem: MenuItem = { ...item, id: tempId };
     setMenuList((prev) => [newItem, ...prev]);
+
+    try {
+      const res = await fetch("/api/menus", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(item),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data) {
+          setMenuList((prev) => prev.map((m) => (m.id === tempId ? json.data : m)));
+        }
+      }
+    } catch (e) {
+      console.error("Gagal menyimpan menu ke database:", e);
+    }
   };
 
-  const updateMenu = (updatedItem: MenuItem) => {
+  const updateMenu = async (updatedItem: MenuItem) => {
     setMenuList((prev) =>
       prev.map((item) => (item.id === updatedItem.id ? updatedItem : item))
     );
@@ -162,23 +219,51 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           : ci
       )
     );
+
+    try {
+      await fetch(`/api/menus/${updatedItem.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updatedItem),
+      });
+    } catch (e) {
+      console.error("Gagal update menu ke database:", e);
+    }
   };
 
-  const toggleMenuStatus = (menuId: string) => {
+  const toggleMenuStatus = async (menuId: string) => {
+    let targetStatus: "Tersedia" | "Habis" = "Habis";
     setMenuList((prev) =>
       prev.map((item) => {
         if (item.id === menuId) {
           const newStatus = item.status === "Tersedia" ? "Habis" : "Tersedia";
+          targetStatus = newStatus;
           return { ...item, status: newStatus };
         }
         return item;
       })
     );
+
+    try {
+      await fetch(`/api/menus/${menuId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: targetStatus }),
+      });
+    } catch (e) {
+      console.error("Gagal toggle status ke database:", e);
+    }
   };
 
-  const deleteMenu = (menuId: string) => {
+  const deleteMenu = async (menuId: string) => {
     setMenuList((prev) => prev.filter((item) => item.id !== menuId));
     removeFromCart(menuId);
+
+    try {
+      await fetch(`/api/menus/${menuId}`, { method: "DELETE" });
+    } catch (e) {
+      console.error("Gagal hapus menu dari database:", e);
+    }
   };
 
   const completePayment = (method: PaymentMethod, cashReceived?: number): Transaction => {
@@ -190,7 +275,6 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const total = subtotal + tax;
     const now = new Date();
     const dateStr = now.toISOString().split("T")[0];
-
     const changeAmount =
       method === "Cash" && cashReceived !== undefined
         ? Math.max(0, cashReceived - total)
@@ -215,17 +299,22 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     clearCart();
     setIsMobileCartOpen(false);
 
+    // Kirim pesanan ke NeonDB
+    fetch("/api/orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(newTx),
+    }).catch((e) => console.error("Gagal simpan transaksi ke database:", e));
+
     return newTx;
   };
 
   const getDailyRecap = (dateStr?: string): DailyRecap => {
     const targetDate = dateStr || new Date().toISOString().split("T")[0];
     const dayTxs = transactions.filter((tx) => tx.date === targetDate);
-
     const totalRevenue = dayTxs.reduce((sum, tx) => sum + tx.total, 0);
     const cashTxs = dayTxs.filter((tx) => tx.paymentMethod === "Cash");
     const qrisTxs = dayTxs.filter((tx) => tx.paymentMethod === "QRIS");
-
     const totalCash = cashTxs.reduce((sum, tx) => sum + tx.total, 0);
     const totalQris = qrisTxs.reduce((sum, tx) => sum + tx.total, 0);
 
@@ -250,7 +339,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       localStorage.setItem("pos_custom_qris_image", dataUrl);
     } catch (e) {
-      console.error("Storage limit exceeded for image", e);
+      console.error("Penyimpanan gambar lokal penuh:", e);
     }
   };
 

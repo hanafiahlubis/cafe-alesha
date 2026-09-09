@@ -2,7 +2,6 @@
 
 import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
-// import { QrisSettings } from "@/components/QrisSettings";
 
 export default function DatabaseInfoPage() {
   const router = useRouter();
@@ -11,5 +10,5 @@ export default function DatabaseInfoPage() {
     router.replace("/upload-qris");
   }, [router]);
 
-  return null; // Render nothing while redirecting
+  return null;
 }

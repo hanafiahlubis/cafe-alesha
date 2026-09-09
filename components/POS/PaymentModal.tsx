@@ -77,7 +77,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-2 sm:p-4 backdrop-blur-sm animate-fadeIn">
       <div className="relative w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-2xl bg-white dark:bg-slate-900 p-3.5 sm:p-6 shadow-2xl border border-blue-100 dark:border-slate-800 text-slate-800 dark:text-white">
-        {/* Header */}
         <div className="flex items-center justify-between border-b border-blue-100 dark:border-slate-800 pb-2.5">
           <div className="flex items-center gap-2">
             <div className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-xl bg-blue-600 text-white font-bold text-xs sm:text-sm shadow-md shadow-blue-500/20">
@@ -103,7 +102,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           </button>
         </div>
 
-        {/* Total Tagihan Banner */}
         <div className="mt-3 rounded-xl bg-gradient-to-r from-blue-600 to-sky-600 p-3 sm:p-4 text-white shadow-lg shadow-blue-600/20 text-center">
           <span className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-blue-100 block">
             Total Tagihan
@@ -113,7 +111,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           </div>
         </div>
 
-        {/* Payment Method Tabs */}
         <div className="mt-3 grid grid-cols-2 gap-1.5 rounded-xl bg-blue-50/70 dark:bg-slate-800 p-1 border border-blue-100 dark:border-transparent">
           <button
             type="button"
@@ -139,7 +136,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           </button>
         </div>
 
-        {/* Tab Cash Content */}
         {method === "Cash" && (
           <div className="mt-3 space-y-2.5 sm:space-y-3.5">
             <div>
@@ -161,7 +157,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               </div>
             </div>
 
-            {/* Quick Amount Buttons */}
             <div>
               <span className="text-[10px] sm:text-[11px] font-semibold text-slate-500 dark:text-slate-400 block mb-1">
                 Nominal Cepat:
@@ -180,7 +175,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               </div>
             </div>
 
-            {/* Change Result Box */}
             <div className={`rounded-xl p-2.5 sm:p-3.5 border transition ${
               isCashSufficient
                 ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200"
@@ -189,7 +183,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               <div className="flex justify-between items-center text-[10px] sm:text-xs font-semibold">
                 <span>Status:</span>
                 <span>
-                  {isCashSufficient ? "✓ Uang Pas / Cukup" : "⚠️ Uang Kurang"}
+                  {isCashSufficient ? "✓ Uang Pas / Cukup" : "⚠ Uang Kurang"}
                 </span>
               </div>
               <div className="flex justify-between items-baseline mt-0.5">
@@ -200,7 +194,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               </div>
             </div>
 
-            {/* Pay Button */}
             <button
               type="button"
               disabled={!isCashSufficient || isProcessing}
@@ -223,7 +216,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           </div>
         )}
 
-        {/* Tab QRIS Content */}
         {method === "QRIS" && (
           <div className="mt-3 space-y-2.5 text-center">
             <div className="rounded-2xl border-2 border-blue-200 dark:border-slate-700 p-2.5 sm:p-4 bg-sky-50/40 dark:bg-slate-800/60 shadow-inner">
@@ -234,7 +226,6 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
                 </span>
               </div>
 
-              {/* QR Image - Responsive */}
               <div className="mx-auto w-40 h-40 sm:w-52 sm:h-52 bg-white p-2 rounded-xl shadow-md flex items-center justify-center overflow-hidden border border-blue-100">
                 <img
                   src={qrisImage}

@@ -1,7 +1,5 @@
 export type CategoryType = 'Minuman' | 'Makanan Ringan' | 'Makanan Berat';
-
 export type MenuStatus = 'Tersedia' | 'Habis';
-
 export type PaymentMethod = 'Cash' | 'QRIS';
 
 export interface MenuItem {

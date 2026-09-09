@@ -20,19 +20,16 @@ const MONTHS = [
 
 export const SalesHistory: React.FC = () => {
   const { transactions } = usePOS();
-
   const now = new Date();
   const currentYearStr = now.getFullYear().toString();
   const currentMonthStr = (now.getMonth() + 1).toString().padStart(2, "0");
   const currentDayStr = now.getDate().toString().padStart(2, "0");
 
-  // Dropdown States: Tahun, Bulan, Tanggal
   const [selectedYear, setSelectedYear] = useState<string>(currentYearStr);
   const [selectedMonth, setSelectedMonth] = useState<string>(currentMonthStr);
   const [selectedDay, setSelectedDay] = useState<string>(currentDayStr);
   const [methodFilter, setMethodFilter] = useState<string>("Semua");
 
-  // Dynamic years list
   const availableYears = useMemo(() => {
     const yearsSet = new Set<string>(["2024", "2025", "2026", "2027", "2028"]);
     transactions.forEach((tx) => {
@@ -44,7 +41,6 @@ export const SalesHistory: React.FC = () => {
     return Array.from(yearsSet).sort((a, b) => b.localeCompare(a));
   }, [transactions]);
 
-  // Days in month
   const daysInMonth = useMemo(() => {
     const y = parseInt(selectedYear, 10);
     const m = parseInt(selectedMonth, 10);
@@ -52,7 +48,6 @@ export const SalesHistory: React.FC = () => {
     return new Date(y, m, 0).getDate();
   }, [selectedYear, selectedMonth]);
 
-  // Options for Tanggal dropdown
   const dayOptions = useMemo(() => {
     const days: { value: string; label: string }[] = [
       { value: "all", label: "Semua Tanggal (1 Bulan)" },
@@ -73,7 +68,6 @@ export const SalesHistory: React.FC = () => {
 
   const isAllDays = effectiveDay === "all";
 
-  // Filter transactions for stats
   const dateTxs = useMemo(() => {
     return transactions.filter((tx) => {
       if (isAllDays) {
@@ -83,14 +77,12 @@ export const SalesHistory: React.FC = () => {
     });
   }, [transactions, selectedYear, selectedMonth, effectiveDay, isAllDays]);
 
-  // Filter transactions with payment method
   const filteredTx = useMemo(() => {
     return dateTxs.filter((tx) => {
       return methodFilter === "Semua" ? true : tx.paymentMethod === methodFilter;
     });
   }, [dateTxs, methodFilter]);
 
-  // Stats
   const totalRevenue = dateTxs.reduce((sum, tx) => sum + tx.total, 0);
   const cashTxs = dateTxs.filter((tx) => tx.paymentMethod === "Cash");
   const qrisTxs = dateTxs.filter((tx) => tx.paymentMethod === "QRIS");
@@ -146,14 +138,13 @@ export const SalesHistory: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#F0F7FF] dark:bg-slate-950 pt-2 sm:pt-20 pb-2 lg:pb-16 text-slate-900 dark:text-slate-50 transition-colors duration-200">
       <div className="mx-auto max-w-7xl px-2 sm:px-4 lg:px-8 space-y-2.5 sm:space-y-4">
-        {/* Page Header */}
         <div className="rounded-2xl bg-white dark:bg-slate-900 p-2.5 sm:p-4 shadow-sm border border-blue-100 dark:border-slate-800">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 sm:gap-2">
                 <span className="text-lg sm:text-2xl">📊</span>
                 <h1 className="text-xs sm:text-lg font-black text-slate-900 dark:text-white truncate">
-                  Riwayat &amp; Rekap Keuangan
+                  Riwayat &amp; Rekap Keuangan (NeonDB)
                 </h1>
               </div>
               <p className="text-[10px] text-slate-400 hidden sm:block mt-0.5">
@@ -161,7 +152,6 @@ export const SalesHistory: React.FC = () => {
               </p>
             </div>
 
-            {/* Quick Filter Buttons */}
             <div className="flex items-center gap-1 shrink-0">
               <button
                 type="button"
@@ -180,10 +170,8 @@ export const SalesHistory: React.FC = () => {
             </div>
           </div>
 
-          {/* Dropdown Filters for Tanggal, Bulan, and Tahun - Ultra responsive */}
           <div className="mt-2.5 pt-2.5 border-t border-blue-50 dark:border-slate-800">
             <div className="grid grid-cols-3 gap-1.5 sm:gap-3">
-              {/* Dropdown 1: Tanggal */}
               <div>
                 <label className="block text-[9px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-0.5 truncate">
                   📅 Tanggal
@@ -201,10 +189,9 @@ export const SalesHistory: React.FC = () => {
                 </select>
               </div>
 
-              {/* Dropdown 2: Bulan */}
               <div>
                 <label className="block text-[9px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-0.5 truncate">
-                  🗓️ Bulan
+                  🗓 Bulan
                 </label>
                 <select
                   value={selectedMonth}
@@ -219,7 +206,6 @@ export const SalesHistory: React.FC = () => {
                 </select>
               </div>
 
-              {/* Dropdown 3: Tahun */}
               <div>
                 <label className="block text-[9px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-0.5 truncate">
                   📆 Tahun
@@ -240,14 +226,11 @@ export const SalesHistory: React.FC = () => {
           </div>
         </div>
 
-        {/* Date Display Badge */}
         <div className="inline-flex items-center gap-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/60 px-2.5 py-1 text-[11px] sm:text-xs font-bold text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-900 shadow-sm">
           <span>📅</span> {reportTitleLabel}
         </div>
 
-        {/* 4 Summary Stat Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3.5">
-          {/* Card 1: Total Pemasukan */}
           <div className="rounded-2xl bg-gradient-to-br from-blue-600 to-sky-600 p-3 sm:p-4 text-white shadow-md shadow-blue-500/20 col-span-2 sm:col-span-1">
             <span className="text-[9px] sm:text-xs font-medium text-blue-100 uppercase tracking-wider block">
               Total Pemasukan
@@ -260,7 +243,6 @@ export const SalesHistory: React.FC = () => {
             </p>
           </div>
 
-          {/* Card 2: Total Transaksi */}
           <div className="rounded-2xl bg-white dark:bg-slate-900 p-3 sm:p-4 border border-blue-100 dark:border-slate-800 shadow-sm">
             <span className="text-[9px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider block truncate">
               Total Transaksi
@@ -271,7 +253,6 @@ export const SalesHistory: React.FC = () => {
             <p className="text-[9px] text-slate-400">Pelanggan dilayani</p>
           </div>
 
-          {/* Card 3: Pemasukan Cash */}
           <div className="rounded-2xl bg-white dark:bg-slate-900 p-3 sm:p-4 border border-emerald-200 dark:border-emerald-900/60 shadow-sm">
             <div className="flex items-center justify-between gap-1">
               <span className="text-[9px] sm:text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider truncate">
@@ -287,7 +268,6 @@ export const SalesHistory: React.FC = () => {
             <p className="text-[9px] text-slate-400">{cashPercentage}% total</p>
           </div>
 
-          {/* Card 4: Pemasukan QRIS */}
           <div className="rounded-2xl bg-white dark:bg-slate-900 p-3 sm:p-4 border border-sky-200 dark:border-blue-900/60 shadow-sm">
             <div className="flex items-center justify-between gap-1">
               <span className="text-[9px] sm:text-xs font-semibold text-sky-600 dark:text-blue-400 uppercase tracking-wider truncate">
@@ -304,7 +284,6 @@ export const SalesHistory: React.FC = () => {
           </div>
         </div>
 
-        {/* Visual Cash vs QRIS Ratio Bar */}
         <div className="rounded-2xl bg-white dark:bg-slate-900 p-3 sm:p-4 border border-blue-100 dark:border-slate-800 shadow-sm">
           <div className="flex items-center justify-between text-[10px] sm:text-xs font-bold mb-1.5">
             <span className="text-emerald-700 dark:text-emerald-400 truncate">
@@ -326,13 +305,11 @@ export const SalesHistory: React.FC = () => {
           </div>
         </div>
 
-        {/* Transactions Section */}
         <div className="overflow-hidden rounded-2xl bg-white dark:bg-slate-900 shadow-sm border border-blue-100 dark:border-slate-800">
           <div className="p-2.5 sm:p-4 bg-sky-50/50 dark:bg-slate-800/50 border-b border-blue-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
             <h3 className="font-bold text-slate-900 dark:text-white text-xs sm:text-sm">
               Daftar Transaksi ({filteredTx.length})
             </h3>
-            {/* Filter by Method */}
             <div className="flex items-center gap-1">
               {["Semua", "Cash", "QRIS"].map((m) => (
                 <button
@@ -351,7 +328,6 @@ export const SalesHistory: React.FC = () => {
             </div>
           </div>
 
-          {/* Mobile View: Cards (sm:hidden) */}
           <div className="sm:hidden divide-y divide-blue-50 dark:divide-slate-800 p-1.5 space-y-1.5">
             {filteredTx.map((tx) => (
               <div key={tx.id} className="p-2.5 bg-sky-50/30 dark:bg-slate-800/40 rounded-xl space-y-1.5 border border-blue-100/60 dark:border-slate-800">
@@ -395,7 +371,6 @@ export const SalesHistory: React.FC = () => {
             ))}
           </div>
 
-          {/* Desktop View: Table (hidden sm:block) */}
           <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-left text-sm text-slate-600 dark:text-slate-300">
               <thead className="bg-sky-50/40 dark:bg-slate-800/20 text-xs uppercase text-slate-400 font-semibold border-b border-blue-100 dark:border-slate-800">

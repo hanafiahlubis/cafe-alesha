@@ -10,7 +10,6 @@ import ThemeToggler from "./ThemeToggler";
 const Header = () => {
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [stickyMenu, setStickyMenu] = useState(false);
-
   const pathUrl = usePathname();
 
   useEffect(() => {
@@ -34,7 +33,6 @@ const Header = () => {
     >
       <div className="mx-auto max-w-7xl px-2.5 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between gap-2">
-          {/* Brand Logo - Responsive for >=320px */}
           <Link href="/" className="flex items-center gap-1.5 shrink-0">
             <Image
               src="/images/logo/alesha-white.jpeg"
@@ -45,7 +43,7 @@ const Header = () => {
               priority
             />
             <Image
-              src="/images/logo/alesha-white.jpeg"
+              src="/images/logo/alesha-dark.jpeg"
               alt="Logo Kasir POS Dark"
               width={130}
               height={32}
@@ -54,7 +52,6 @@ const Header = () => {
             />
           </Link>
 
-          {/* Desktop Navigation Menu */}
           <nav className="hidden lg:flex items-center gap-4 xl:gap-6">
             {menuData.map((menuItem) => {
               const isActive =
@@ -76,11 +73,8 @@ const Header = () => {
             })}
           </nav>
 
-          {/* Right Controls: Theme Toggler & Mobile Hamburger */}
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <ThemeToggler />
-
-            {/* Mobile Hamburger Button */}
             <button
               aria-label="Menu navigasi ponsel"
               onClick={() => setNavigationOpen(!navigationOpen)}
@@ -97,7 +91,6 @@ const Header = () => {
           </div>
         </div>
 
-        {/* Mobile Navigation Drawer */}
         {navigationOpen && (
           <div className="lg:hidden mt-2.5 rounded-2xl border border-blue-100 bg-white p-3 shadow-xl dark:border-slate-800 dark:bg-slate-900 animate-fadeIn">
             <nav className="flex flex-col gap-1">

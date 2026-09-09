@@ -1,5 +1,4 @@
--- SQL DDL SCHEMA UNTUK POS KASIR (POSTGRESQL / MYSQL)
-
+-- SQL DDL SCHEMA UNTUK POS KASIR (POSTGRESQL / NEONDB)
 CREATE TYPE "CategoryType" AS ENUM ('MINUMAN', 'MAKANAN_RINGAN', 'MAKANAN_BERAT');
 CREATE TYPE "MenuStatus" AS ENUM ('TERSEDIA', 'HABIS');
 CREATE TYPE "PaymentMethod" AS ENUM ('CASH', 'QRIS');
@@ -11,7 +10,7 @@ CREATE TABLE IF NOT EXISTS "store_settings" (
     "store_name" VARCHAR(150) NOT NULL DEFAULT 'CAFE & RESTO BIRU',
     "store_address" TEXT DEFAULT 'Jl. Melati No. 12, Jakarta',
     "store_phone" VARCHAR(50) DEFAULT '0812-3456-7890',
-    "qris_image_url" TEXT, -- Path atau URL foto QRIS hasil upload
+    "qris_image_url" TEXT,
     "qris_nmid" VARCHAR(50) DEFAULT 'ID1020030040050',
     "qris_merchant_name" VARCHAR(150) DEFAULT 'KASIR CAFE & RESTO BIRU',
     "updated_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -42,7 +41,7 @@ CREATE TABLE IF NOT EXISTS "menus" (
 -- 4. Tabel Pesanan & Antrean
 CREATE TABLE IF NOT EXISTS "orders" (
     "id" VARCHAR(36) PRIMARY KEY,
-    "queue_number" VARCHAR(20) NOT NULL, -- e.g. #01, #02 (otomatis tanpa nomor meja)
+    "queue_number" VARCHAR(20) NOT NULL,
     "total_amount" DECIMAL(12, 2) NOT NULL,
     "payment_method" "PaymentMethod" NOT NULL,
     "cash_received" DECIMAL(12, 2),
