@@ -115,22 +115,20 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
           <button
             type="button"
             onClick={() => setMethod("Cash")}
-            className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs sm:text-sm font-bold transition cursor-pointer ${
-              method === "Cash"
-                ? "bg-white dark:bg-blue-600 text-blue-700 dark:text-white shadow-sm"
-                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-            }`}
+            className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs sm:text-sm font-bold transition cursor-pointer ${method === "Cash"
+              ? "bg-white dark:bg-blue-600 text-blue-700 dark:text-white shadow-sm"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+              }`}
           >
             <span>💵</span> Tunai (Cash)
           </button>
           <button
             type="button"
             onClick={() => setMethod("QRIS")}
-            className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs sm:text-sm font-bold transition cursor-pointer ${
-              method === "QRIS"
-                ? "bg-white dark:bg-blue-600 text-blue-700 dark:text-white shadow-sm"
-                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-            }`}
+            className={`flex items-center justify-center gap-1.5 rounded-lg py-2 text-xs sm:text-sm font-bold transition cursor-pointer ${method === "QRIS"
+              ? "bg-white dark:bg-blue-600 text-blue-700 dark:text-white shadow-sm"
+              : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
+              }`}
           >
             <span>📱</span> QRIS {isCustomQris ? "Toko" : "BCA"}
           </button>
@@ -175,11 +173,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               </div>
             </div>
 
-            <div className={`rounded-xl p-2.5 sm:p-3.5 border transition ${
-              isCashSufficient
-                ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200"
-                : "bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200"
-            }`}>
+            <div className={`rounded-xl p-2.5 sm:p-3.5 border transition ${isCashSufficient
+              ? "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200"
+              : "bg-amber-50 dark:bg-amber-950/40 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200"
+              }`}>
               <div className="flex justify-between items-center text-[10px] sm:text-xs font-semibold">
                 <span>Status:</span>
                 <span>
@@ -198,11 +195,10 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
               type="button"
               disabled={!isCashSufficient || isProcessing}
               onClick={handlePayCash}
-              className={`w-full rounded-xl py-3 text-sm sm:text-base font-bold text-white shadow-lg transition flex items-center justify-center gap-2 ${
-                isCashSufficient && !isProcessing
-                  ? "bg-blue-600 hover:bg-blue-700 shadow-blue-600/30 cursor-pointer active:scale-98"
-                  : "bg-slate-300 dark:bg-slate-800 text-slate-500 cursor-not-allowed"
-              }`}
+              className={`w-full rounded-xl py-3 text-sm sm:text-base font-bold text-white shadow-lg transition flex items-center justify-center gap-2 ${isCashSufficient && !isProcessing
+                ? "bg-blue-600 hover:bg-blue-700 shadow-blue-600/30 cursor-pointer active:scale-98"
+                : "bg-slate-300 dark:bg-slate-800 text-slate-500 cursor-not-allowed"
+                }`}
             >
               {isProcessing ? (
                 <>
@@ -218,37 +214,36 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({
 
         {method === "QRIS" && (
           <div className="mt-3 space-y-2.5 text-center">
-            <div className="rounded-2xl border-2 border-blue-200 dark:border-slate-700 p-2.5 sm:p-4 bg-sky-50/40 dark:bg-slate-800/60 shadow-inner">
-              <div className="flex items-center justify-between border-b border-blue-100 dark:border-slate-700 pb-1.5 mb-2">
-                <span className="text-[10px] font-black text-rose-600 tracking-wider">QRIS</span>
-                <span className="text-[10px] font-black text-blue-700 dark:text-blue-400 tracking-wider">
+            <div className="rounded-2xl border-2 border-blue-200 dark:border-slate-700 p-3 bg-white dark:bg-slate-900 shadow-sm">
+              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-1.5 mb-2">
+                <span className="text-xs font-black text-rose-600 tracking-wider">QRIS PEMBAYARAN</span>
+                <span className="text-xs font-bold text-blue-600 dark:text-blue-400">
                   {isCustomQris ? "QRIS TOKO" : "BCA"}
                 </span>
               </div>
 
-              <div className="mx-auto w-40 h-40 sm:w-52 sm:h-52 bg-white p-2 rounded-xl shadow-md flex items-center justify-center overflow-hidden border border-blue-100">
+              {/* Container diperlebar agar gambar brosur QRIS vertikal tetap besar & jelas */}
+              <div className="mx-auto w-full max-w-[280px] sm:max-w-[320px] bg-slate-50 dark:bg-slate-800 p-2 rounded-xl border border-blue-100 dark:border-slate-700 flex items-center justify-center">
                 <img
                   src={qrisImage}
                   alt="QRIS Merchant"
-                  className="w-full h-full object-contain"
+                  className="w-full h-auto max-h-[360px] object-contain rounded-lg shadow-sm"
                 />
               </div>
 
-              <div className="mt-2">
+              <div className="mt-2.5 bg-blue-50/70 dark:bg-slate-800/60 py-2 px-3 rounded-xl">
                 <p className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">
                   {storeInfo.name}
                 </p>
-                <p className="text-[10px] text-slate-500 font-mono">NMID: {storeInfo.qrisNmid}</p>
-                <div className="mt-0.5 text-sm sm:text-lg font-black text-blue-600 dark:text-blue-400">
+                <p className="text-[11px] text-slate-500 font-mono">NMID: {storeInfo.qrisNmid}</p>
+                <div className="mt-0.5 text-base sm:text-xl font-black text-blue-600 dark:text-blue-400">
                   {formatIDR(totalAmount)}
                 </div>
               </div>
             </div>
-
             <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400">
-              Scan QRIS menggunakan BCA mobile, myBCA, atau e-Wallet lainnya.
+              Arahkan kamera / scan dari BCA mobile, myBCA, GoPay, OVO, Dana, ShopeePay.
             </p>
-
             <button
               type="button"
               disabled={isProcessing}

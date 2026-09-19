@@ -66,7 +66,9 @@ export async function POST(req: NextRequest) {
       const countToday = await prisma.order.count({
         where: { createdAt: { gte: today } },
       });
-      assignedQueue = `#${(countToday + 1).toString().padStart(2, "0")}`;
+      // Modulo 999 agar setelah 999 transaksi hari ini, nomor kembali ke #001
+      const queueNumberVal = (countToday % 999) + 1;
+      assignedQueue = `#${queueNumberVal.toString().padStart(3, "0")}`;
     }
 
     const newOrder = await prisma.order.create({

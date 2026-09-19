@@ -126,22 +126,20 @@ export const PosTerminal: React.FC = () => {
                       key={cat}
                       type="button"
                       onClick={() => setActiveCategory(cat)}
-                      className={`flex items-center gap-1 rounded-xl px-2.5 py-1.5 sm:px-3.5 sm:py-2 text-[11px] sm:text-xs font-bold whitespace-nowrap transition cursor-pointer active:scale-95 shrink-0 ${
-                        isActive
+                      className={`flex items-center gap-1 rounded-xl px-2.5 py-1.5 sm:px-3.5 sm:py-2 text-[11px] sm:text-xs font-bold whitespace-nowrap transition cursor-pointer active:scale-95 shrink-0 ${isActive
                           ? "bg-blue-600 text-white shadow-md shadow-blue-500/25"
                           : "bg-sky-50/70 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-blue-100/70 dark:hover:bg-slate-700 border border-blue-100 dark:border-transparent"
-                      }`}
+                        }`}
                     >
                       <span className="text-xs">
                         {cat === "Semua" ? "✨" : getCategoryIcon(cat as CategoryType)}
                       </span>
                       <span>{cat}</span>
                       <span
-                        className={`rounded-full px-1.5 py-0.2 text-[9px] font-bold ${
-                          isActive
+                        className={`rounded-full px-1.5 py-0.2 text-[9px] font-bold ${isActive
                             ? "bg-white/20 text-white"
                             : "bg-blue-100 dark:bg-slate-700 text-blue-700 dark:text-slate-400"
-                        }`}
+                          }`}
                       >
                         {count}
                       </span>
@@ -181,11 +179,10 @@ export const PosTerminal: React.FC = () => {
                   <div
                     key={item.id}
                     onClick={() => !isHabis && addToCart(item)}
-                    className={`group relative flex flex-col justify-between rounded-2xl bg-white dark:bg-slate-900 p-2 sm:p-3 border transition shadow-sm shadow-blue-500/5 ${
-                      isHabis
+                    className={`group relative flex flex-col justify-between rounded-2xl bg-white dark:bg-slate-900 p-2 sm:p-3 border transition shadow-sm shadow-blue-500/5 ${isHabis
                         ? "opacity-60 border-slate-200 dark:border-slate-800 cursor-not-allowed bg-slate-100/50 dark:bg-slate-900/50"
                         : "border-blue-100/90 dark:border-slate-800 hover:border-blue-400 hover:shadow-md hover:shadow-blue-500/10 cursor-pointer active:scale-98"
-                    }`}
+                      }`}
                   >
                     <div>
                       <div className="flex items-center justify-between gap-1 mb-1">
@@ -219,11 +216,10 @@ export const PosTerminal: React.FC = () => {
                         type="button"
                         disabled={isHabis}
                         aria-label={`Tambah ${item.name}`}
-                        className={`flex h-6 w-6 sm:h-7 sm:w-7 shrink-0 items-center justify-center rounded-lg font-bold text-xs sm:text-sm transition ${
-                          isHabis
+                        className={`flex h-6 w-6 sm:h-7 sm:w-7 shrink-0 items-center justify-center rounded-lg font-bold text-xs sm:text-sm transition ${isHabis
                             ? "bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed"
                             : "bg-blue-600 text-white hover:bg-blue-700 shadow-sm shadow-blue-600/20 group-hover:scale-105 active:scale-95 cursor-pointer"
-                        }`}
+                          }`}
                       >
                         +
                       </button>
@@ -365,24 +361,32 @@ export const PosTerminal: React.FC = () => {
       </div>
 
       {cart.length > 0 && (
-        <div className="lg:hidden fixed bottom-4 left-2 right-2 sm:left-4 sm:right-4 z-30 animate-fadeIn">
+        <div className="lg:hidden fixed bottom-3 left-2 right-2 z-30 animate-fadeIn flex gap-2">
+          {/* Tombol Lihat/Edit Keranjang */}
           <button
             type="button"
             onClick={() => setIsMobileCartOpen(true)}
-            className="w-full rounded-xl sm:rounded-2xl bg-gradient-to-r from-blue-600 to-sky-600 py-2.5 px-3 sm:px-4 text-white shadow-xl shadow-blue-600/30 flex items-center justify-between font-bold cursor-pointer active:scale-98 border border-blue-400/40"
+            className="flex-1 rounded-xl bg-white dark:bg-slate-900 py-2.5 px-3 border border-blue-200 dark:border-slate-700 text-slate-800 dark:text-white shadow-lg flex items-center justify-between font-bold text-xs active:scale-95"
           >
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <span className="bg-white/20 rounded-md sm:rounded-lg px-1.5 sm:px-2 py-0.5 text-[10px] sm:text-xs font-black">
-                {totalItemCount} item
+            <div className="flex items-center gap-1.5">
+              <span className="bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 rounded px-1.5 py-0.5 text-[10px] font-black">
+                {totalItemCount}
               </span>
-              <span className="text-[10px] sm:text-xs text-blue-100">Antrean {currentQueueNumber}</span>
+              <span className="text-[11px] truncate">Keranjang</span>
             </div>
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              <span className="text-xs sm:text-sm font-black">{formatIDR(total)}</span>
-              <span className="text-[10px] sm:text-xs bg-white text-blue-700 px-2 py-1 rounded-md sm:rounded-lg shadow-sm font-bold">
-                Pesanan ↗
-              </span>
-            </div>
+            <span className="text-xs font-black text-blue-600 dark:text-blue-400">
+              {formatIDR(total)}
+            </span>
+          </button>
+
+          {/* Tombol Bayar Langsung: Memotong alur modal sehingga langsung ke pembayaran */}
+          <button
+            type="button"
+            onClick={() => setIsPaymentOpen(true)}
+            className="flex-1 rounded-xl bg-gradient-to-r from-blue-600 to-sky-600 py-2.5 px-3 text-white shadow-lg shadow-blue-600/30 flex items-center justify-center gap-1.5 font-bold text-xs active:scale-95"
+          >
+            <span>Bayar Sekarang</span>
+            <span>→</span>
           </button>
         </div>
       )}

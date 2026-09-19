@@ -147,7 +147,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } catch (e) { }
   }, [transactions, isHydrated]);
 
-  const currentQueueNumber = `#${queueCounter.toString().padStart(2, "0")}`;
+  const currentQueueNumber = `#${queueCounter.toString().padStart(3, "0")}`;
 
   const addToCart = (menuItem: MenuItem) => {
     if (menuItem.status === "Habis") return;
@@ -295,7 +295,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setTransactions((prev) => [newTx, ...prev]);
-    setQueueCounter((prev) => prev + 1);
+    setQueueCounter((prev) => (prev >= 999 ? 1 : prev + 1));
     clearCart();
     setIsMobileCartOpen(false);
 
