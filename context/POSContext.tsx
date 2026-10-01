@@ -1,7 +1,15 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { MenuItem, CartItem, Transaction, CategoryType, PaymentMethod, DailyRecap, StoreInfo } from "@/types/pos";
+import {
+  MenuItem,
+  CartItem,
+  Transaction,
+  CategoryType,
+  PaymentMethod,
+  DailyRecap,
+  StoreInfo,
+} from "@/types/pos";
 
 const INITIAL_MENU: MenuItem[] = [];
 
@@ -12,6 +20,15 @@ const DEFAULT_STORE_INFO: StoreInfo = {
   qrisNmid: "ID1020030040050",
   qrisMerchantName: "KASIR CAFE & RESTO BIRU",
 };
+
+// Helper mendapatkan tanggal hari ini format YYYY-MM-DD
+function getLocalDateString(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
 
 interface POSContextType {
   menuList: MenuItem[];
@@ -53,20 +70,34 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isMobileCartOpen, setIsMobileCartOpen] = useState<boolean>(false);
   const [isHydrated, setIsHydrated] = useState<boolean>(false);
 
-  // 1. Muat data dari localStorage terlebih dahulu (offline-first)
+  // 1. Muat data dari localStorage (DENGAN PENGECEKAN RESET HARIAN)
   useEffect(() => {
     try {
+      const today = getLocalDateString();
+      const savedDate = localStorage.getItem("pos_queue_date");
+      const savedQueue = localStorage.getItem("pos_queue_counter");
+
+      // JIKA HARI SUDAH BERGANTI -> RESET ANTREAN KE 1
+      if (savedDate !== today) {
+        setQueueCounter(1);
+        localStorage.setItem("pos_queue_counter", "1");
+        localStorage.setItem("pos_queue_date", today);
+      } else if (savedQueue) {
+        setQueueCounter(parseInt(savedQueue, 10));
+      }
+
       const savedMenu = localStorage.getItem("pos_menu_list");
       if (savedMenu) setMenuList(JSON.parse(savedMenu));
-      const savedQueue = localStorage.getItem("pos_queue_counter");
-      if (savedQueue) setQueueCounter(parseInt(savedQueue, 10));
+
       const savedTx = localStorage.getItem("pos_transactions");
       if (savedTx) setTransactions(JSON.parse(savedTx));
+
       const savedQris = localStorage.getItem("pos_custom_qris_image");
       if (savedQris) {
         setQrisImage(savedQris);
         setIsCustomQris(true);
       }
+
       const savedInfo = localStorage.getItem("pos_store_info");
       if (savedInfo) {
         setStoreInfo(JSON.parse(savedInfo));
@@ -77,11 +108,29 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsHydrated(true);
   }, []);
 
-  // 2. Sinkronkan dengan API NeonDB saat pertama kali dimuat
+  // 2. SINKRONKAN DENGAN API NEONDB (TERMASUK HIT KE /api/queue)
   useEffect(() => {
     async function syncWithNeonDB() {
       try {
-        // Ambil store settings
+        const today = getLocalDateString();
+
+        // 2a. AMBIL STATUS ANTREAN HARI INI DARI API /api/queue
+        try {
+          const queueRes = await fetch(`/api/queue?date=${today}`);
+          if (queueRes.ok) {
+            const qJson = await queueRes.json();
+            if (qJson.success && qJson.data) {
+              const nextNumber = qJson.data.nextQueueNumber || 1;
+              setQueueCounter(nextNumber);
+              localStorage.setItem("pos_queue_counter", nextNumber.toString());
+              localStorage.setItem("pos_queue_date", today);
+            }
+          }
+        } catch (qErr) {
+          console.warn("Gagal sinkron /api/queue, menggunakan antrean lokal:", qErr);
+        }
+
+        // 2b. Ambil store settings
         const settingsRes = await fetch("/api/settings");
         if (settingsRes.ok) {
           const sJson = await settingsRes.json();
@@ -100,7 +149,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         }
 
-        // Ambil menus
+        // 2c. Ambil menus
         const menusRes = await fetch("/api/menus");
         if (menusRes.ok) {
           const mJson = await menusRes.json();
@@ -109,7 +158,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         }
 
-        // Ambil orders
+        // 2d. Ambil orders
         const ordersRes = await fetch("/api/orders");
         if (ordersRes.ok) {
           const oJson = await ordersRes.json();
@@ -137,6 +186,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!isHydrated) return;
     try {
       localStorage.setItem("pos_queue_counter", queueCounter.toString());
+      localStorage.setItem("pos_queue_date", getLocalDateString());
     } catch (e) { }
   }, [queueCounter, isHydrated]);
 
@@ -266,6 +316,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // PROSES PEMBAYARAN & INCREMENT ANTREAN HARIAN
   const completePayment = (method: PaymentMethod, cashReceived?: number): Transaction => {
     const subtotal = cart.reduce(
       (sum, item) => sum + item.menuItem.price * item.quantity,
@@ -274,7 +325,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const tax = 0;
     const total = subtotal + tax;
     const now = new Date();
-    const dateStr = now.toISOString().split("T")[0];
+    const dateStr = getLocalDateString();
     const changeAmount =
       method === "Cash" && cashReceived !== undefined
         ? Math.max(0, cashReceived - total)
@@ -295,7 +346,15 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setTransactions((prev) => [newTx, ...prev]);
-    setQueueCounter((prev) => (prev >= 999 ? 1 : prev + 1));
+
+    // Naikkan nomor antrean untuk pembeli berikutnya
+    setQueueCounter((prev) => {
+      const next = prev >= 999 ? 1 : prev + 1;
+      localStorage.setItem("pos_queue_counter", next.toString());
+      localStorage.setItem("pos_queue_date", dateStr);
+      return next;
+    });
+
     clearCart();
     setIsMobileCartOpen(false);
 
@@ -310,7 +369,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const getDailyRecap = (dateStr?: string): DailyRecap => {
-    const targetDate = dateStr || new Date().toISOString().split("T")[0];
+    const targetDate = dateStr || getLocalDateString();
     const dayTxs = transactions.filter((tx) => tx.date === targetDate);
     const totalRevenue = dayTxs.reduce((sum, tx) => sum + tx.total, 0);
     const cashTxs = dayTxs.filter((tx) => tx.paymentMethod === "Cash");
@@ -331,6 +390,8 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const resetQueueCounter = () => {
     setQueueCounter(1);
+    localStorage.setItem("pos_queue_counter", "1");
+    localStorage.setItem("pos_queue_date", getLocalDateString());
   };
 
   const updateQrisImage = (dataUrl: string) => {
