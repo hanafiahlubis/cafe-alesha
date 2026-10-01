@@ -55,6 +55,7 @@ model Menu {
   categoryId  String
   category    Category     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   price       Decimal      @db.Decimal(12, 2)
+  hpp         Decimal?     @db.Decimal(12, 2) // HPP Opsional
   description String?
   status      MenuStatus   @default(TERSEDIA)
   image       String?
@@ -93,4 +94,30 @@ model OrderItem {
 
   @@index([orderId])
   @@index([menuId])
+}
+
+// Model Tabel Antrean Harian (Reset ke 1 setiap hari baru)
+model Queue {
+  id          String   @id @default(cuid())
+  queueNumber Int      // Angka 1, 2, 3...
+  formatted   String   // "#001", "#002"
+  date        String   // Format "YYYY-MM-DD"
+  orderId     String?
+  createdAt   DateTime @default(now())
+
+  @@index([date])
+}
+
+// Model Tabel Pengeluaran Toko
+model Expense {
+  id          String   @id @default(cuid())
+  title       String
+  amount      Decimal  @db.Decimal(12, 2)
+  category    String   @default("Operasional") // Bahan Baku, Operasional, Gaji, dll.
+  notes       String?
+  expenseDate DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([expenseDate])
 }

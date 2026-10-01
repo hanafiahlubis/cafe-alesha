@@ -7,6 +7,7 @@ export interface MenuItem {
   name: string;
   category: CategoryType;
   price: number;
+  hpp?: number;
   description: string;
   status: MenuStatus;
   image?: string;

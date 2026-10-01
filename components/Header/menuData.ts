@@ -21,6 +21,12 @@ const menuData: Menu[] = [
   },
   {
     id: 4,
+    title: "Pengeluaran",
+    newTab: false,
+    path: "/pengeluaran"
+  }, // Menu Baru
+  {
+    id: 5,
     title: "Upload QRIS",
     newTab: false,
     path: "/upload-qris",

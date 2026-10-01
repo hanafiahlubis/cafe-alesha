@@ -2,16 +2,37 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 import { PaymentMethod, OrderStatus, CategoryType } from "@prisma/client";
 
+// Helper untuk format tanggal lokal YYYY-MM-DD
+function getLocalDateString(dateInput?: Date): string {
+  const d = dateInput || new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+// GET: Ambil daftar transaksi (mendukung filter tanggal tunggal / rentang tanggal)
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const dateQuery = searchParams.get("date"); // YYYY-MM-DD
+    const startDate = searchParams.get("startDate"); // YYYY-MM-DD
+    const endDate = searchParams.get("endDate"); // YYYY-MM-DD
 
     const whereClause: any = {};
+
     if (dateQuery) {
       const startOfDay = new Date(`${dateQuery}T00:00:00.000Z`);
       const endOfDay = new Date(`${dateQuery}T23:59:59.999Z`);
       whereClause.createdAt = { gte: startOfDay, lte: endOfDay };
+    } else if (startDate || endDate) {
+      whereClause.createdAt = {};
+      if (startDate) {
+        whereClause.createdAt.gte = new Date(`${startDate}T00:00:00.000Z`);
+      }
+      if (endDate) {
+        whereClause.createdAt.lte = new Date(`${endDate}T23:59:59.999Z`);
+      }
     }
 
     const orders = await prisma.order.findMany({
@@ -54,23 +75,25 @@ export async function GET(req: NextRequest) {
   }
 }
 
+// POST: Simpan transaksi baru & Reset Antrean Harian ke angka 1 setiap hari baru
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { items, total, paymentMethod, cashReceived, changeAmount, queueNumber } = body;
+    const { items, total, paymentMethod, cashReceived, changeAmount } = body;
 
-    let assignedQueue = queueNumber;
-    if (!assignedQueue) {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const countToday = await prisma.order.count({
-        where: { createdAt: { gte: today } },
-      });
-      // Modulo 999 agar setelah 999 transaksi hari ini, nomor kembali ke #001
-      const queueNumberVal = (countToday % 999) + 1;
-      assignedQueue = `#${queueNumberVal.toString().padStart(3, "0")}`;
-    }
+    const todayDateStr = getLocalDateString();
 
+    // 1. Cari antrean terakhir yang terdaftar pada HARI INI di tabel Queue
+    const lastQueueToday = await prisma.queue.findFirst({
+      where: { date: todayDateStr },
+      orderBy: { queueNumber: "desc" },
+    });
+
+    // Otomatis kembali ke 1 jika hari baru, atau +1 jika sudah ada antrean hari ini
+    const nextQueueNumber = (lastQueueToday?.queueNumber || 0) + 1;
+    const assignedQueue = `#${nextQueueNumber.toString().padStart(3, "0")}`;
+
+    // 2. Simpan order transaksi kasir
     const newOrder = await prisma.order.create({
       data: {
         queueNumber: assignedQueue,
@@ -99,7 +122,6 @@ export async function POST(req: NextRequest) {
                 });
                 menuId = createdMenu.id;
               }
-
               return {
                 menuId: menuId,
                 menuName: ci.menuItem.name,
@@ -114,9 +136,19 @@ export async function POST(req: NextRequest) {
       include: { items: true },
     });
 
+    // 3. Simpan entri antrean ke tabel Queue untuk pelacakan historis antrean per hari
+    await prisma.queue.create({
+      data: {
+        queueNumber: nextQueueNumber,
+        formatted: assignedQueue,
+        date: todayDateStr,
+        orderId: newOrder.id,
+      },
+    });
+
     return NextResponse.json({
       success: true,
-      message: "Transaksi berhasil disimpan ke NeonDB",
+      message: "Transaksi dan nomor antrean berhasil disimpan ke NeonDB",
       data: newOrder,
     });
   } catch (error: any) {
