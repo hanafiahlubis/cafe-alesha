@@ -49,3 +49,29 @@ export interface StoreInfo {
   qrisNmid: string;
   qrisMerchantName: string;
 }
+
+export interface SavedOrder {
+  id: string;
+  orderName: string;
+  items: CartItem[];
+  totalPrice: number;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export type BalanceType = 'CASH' | 'QRIS';
+
+export interface BalanceAdjustment {
+  id: string;
+  type: BalanceType;
+  actualAmount: number;
+  note?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface StoreBalancesData {
+  cash: BalanceAdjustment | null;
+  qris: BalanceAdjustment | null;
+  history?: BalanceAdjustment[];
+}

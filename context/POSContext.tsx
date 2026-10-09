@@ -9,6 +9,7 @@ import {
   PaymentMethod,
   DailyRecap,
   StoreInfo,
+  SavedOrder,
 } from "@/types/pos";
 
 const INITIAL_MENU: MenuItem[] = [];
@@ -41,6 +42,15 @@ interface POSContextType {
   storeInfo: StoreInfo;
   isMobileCartOpen: boolean;
   setIsMobileCartOpen: (open: boolean) => void;
+  savedOrders: SavedOrder[];
+  activeSavedOrderId: string | null;
+  activeSavedOrderName: string | null;
+  setActiveSavedOrderId: (id: string | null) => void;
+  setActiveSavedOrderName: (name: string | null) => void;
+  isSaveOrderOpen: boolean;
+  setIsSaveOrderOpen: (open: boolean) => void;
+  isSavedOrdersOpen: boolean;
+  setIsSavedOrdersOpen: (open: boolean) => void;
   addToCart: (menuItem: MenuItem) => void;
   updateQuantity: (menuId: string, delta: number) => void;
   removeFromCart: (menuId: string) => void;
@@ -50,11 +60,20 @@ interface POSContextType {
   toggleMenuStatus: (menuId: string) => Promise<void>;
   deleteMenu: (menuId: string) => Promise<void>;
   completePayment: (method: PaymentMethod, cashReceived?: number) => Transaction;
+  deleteTransaction: (txId: string) => Promise<boolean>;
+  deleteBulkTransactions: (txIds: string[]) => Promise<boolean>;
   getDailyRecap: (dateStr?: string) => DailyRecap;
   resetQueueCounter: () => void;
   updateQrisImage: (dataUrl: string) => void;
   resetQrisImage: () => void;
   updateStoreInfo: (info: Partial<StoreInfo>) => void;
+  saveCurrentOrder: (
+    orderName: string,
+    asNew?: boolean
+  ) => Promise<{ success: boolean; data?: SavedOrder; isUpdated?: boolean; message?: string }>;
+  loadSavedOrder: (savedOrder: SavedOrder) => void;
+  deleteSavedOrder: (orderId: string) => Promise<void>;
+  fetchSavedOrders: () => Promise<void>;
 }
 
 const POSContext = createContext<POSContextType | undefined>(undefined);
@@ -68,6 +87,11 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isCustomQris, setIsCustomQris] = useState<boolean>(false);
   const [storeInfo, setStoreInfo] = useState<StoreInfo>(DEFAULT_STORE_INFO);
   const [isMobileCartOpen, setIsMobileCartOpen] = useState<boolean>(false);
+  const [savedOrders, setSavedOrders] = useState<SavedOrder[]>([]);
+  const [activeSavedOrderId, setActiveSavedOrderId] = useState<string | null>(null);
+  const [activeSavedOrderName, setActiveSavedOrderName] = useState<string | null>(null);
+  const [isSaveOrderOpen, setIsSaveOrderOpen] = useState<boolean>(false);
+  const [isSavedOrdersOpen, setIsSavedOrdersOpen] = useState<boolean>(false);
   const [isHydrated, setIsHydrated] = useState<boolean>(false);
 
   // 1. Muat data dari localStorage (DENGAN PENGECEKAN RESET HARIAN)
@@ -102,13 +126,40 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (savedInfo) {
         setStoreInfo(JSON.parse(savedInfo));
       }
+
+      const cachedSavedOrders = localStorage.getItem("pos_saved_orders");
+      if (cachedSavedOrders) {
+        setSavedOrders(JSON.parse(cachedSavedOrders));
+      }
+
+      const cachedActiveId = localStorage.getItem("pos_active_saved_order_id");
+      if (cachedActiveId) setActiveSavedOrderId(cachedActiveId);
+
+      const cachedActiveName = localStorage.getItem("pos_active_saved_order_name");
+      if (cachedActiveName) setActiveSavedOrderName(cachedActiveName);
     } catch (e) {
       console.error("Gagal membaca cache lokal:", e);
     }
     setIsHydrated(true);
   }, []);
 
-  // 2. SINKRONKAN DENGAN API NEONDB (TERMASUK HIT KE /api/queue)
+  // Helper untuk fetch saved orders dari API
+  const fetchSavedOrders = async () => {
+    try {
+      const res = await fetch("/api/saved-orders");
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data && Array.isArray(json.data)) {
+          setSavedOrders(json.data);
+          localStorage.setItem("pos_saved_orders", JSON.stringify(json.data));
+        }
+      }
+    } catch (e) {
+      console.warn("Gagal memuat saved orders dari API:", e);
+    }
+  };
+
+  // 2. SINKRONKAN DENGAN API NEONDB (TERMASUK HIT KE /api/queue & /api/saved-orders)
   useEffect(() => {
     async function syncWithNeonDB() {
       try {
@@ -166,6 +217,9 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setTransactions(oJson.data);
           }
         }
+
+        // 2e. Ambil saved orders
+        await fetchSavedOrders();
       } catch (err) {
         console.warn("NeonDB API belum dapat dijangkau, menggunakan data lokal:", err);
       }
@@ -196,6 +250,13 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem("pos_transactions", JSON.stringify(transactions));
     } catch (e) { }
   }, [transactions, isHydrated]);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    try {
+      localStorage.setItem("pos_saved_orders", JSON.stringify(savedOrders));
+    } catch (e) { }
+  }, [savedOrders, isHydrated]);
 
   const currentQueueNumber = `#${queueCounter.toString().padStart(3, "0")}`;
 
@@ -234,6 +295,12 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const clearCart = () => {
     setCart([]);
+    setActiveSavedOrderId(null);
+    setActiveSavedOrderName(null);
+    try {
+      localStorage.removeItem("pos_active_saved_order_id");
+      localStorage.removeItem("pos_active_saved_order_name");
+    } catch (e) { }
   };
 
   const addMenu = async (item: Omit<MenuItem, "id">) => {
@@ -316,6 +383,132 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // FITUR 1: SIMPAN ATAU PERBARUI PESANAN SEMENTARA DENGAN NAMA PESANAN
+  const saveCurrentOrder = async (orderName: string, asNew: boolean = false) => {
+    if (cart.length === 0) {
+      return { success: false, message: "Keranjang belanja kosong!" };
+    }
+
+    const cleanName =
+      orderName.trim() || activeSavedOrderName || `Pesanan ${currentQueueNumber}`;
+    const subtotal = cart.reduce(
+      (sum, item) => sum + item.menuItem.price * item.quantity,
+      0
+    );
+
+    const isUpdating = !asNew && !!activeSavedOrderId;
+    const targetId = isUpdating ? activeSavedOrderId! : `so-${Date.now()}`;
+
+    const orderPayload: SavedOrder = {
+      id: targetId,
+      orderName: cleanName,
+      items: [...cart],
+      totalPrice: subtotal,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    // Optimistic update
+    if (isUpdating) {
+      setSavedOrders((prev) =>
+        prev.map((so) => (so.id === targetId ? orderPayload : so))
+      );
+    } else {
+      setSavedOrders((prev) => [orderPayload, ...prev]);
+    }
+
+    clearCart();
+    setIsMobileCartOpen(false);
+
+    try {
+      const res = await fetch("/api/saved-orders", {
+        method: isUpdating ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: isUpdating ? targetId : undefined,
+          orderName: cleanName,
+          items: orderPayload.items,
+          totalPrice: subtotal,
+        }),
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data && json.data.id) {
+          setSavedOrders((prev) =>
+            prev.map((so) => (so.id === targetId ? json.data : so))
+          );
+        }
+      }
+    } catch (err) {
+      console.warn("Gagal sinkron pesanan ke database, tetap tersimpan secara lokal:", err);
+    }
+
+    return { success: true, data: orderPayload, isUpdated: isUpdating };
+  };
+
+  // FITUR 1: MUAT PESANAN TERSIMPAN KE KERANJANG (MENGINGAT NAMA & ID PESANAN)
+  const loadSavedOrder = (savedOrder: SavedOrder) => {
+    setCart([...savedOrder.items]);
+    setActiveSavedOrderId(savedOrder.id);
+    setActiveSavedOrderName(savedOrder.orderName);
+    try {
+      localStorage.setItem("pos_active_saved_order_id", savedOrder.id);
+      localStorage.setItem("pos_active_saved_order_name", savedOrder.orderName);
+    } catch (e) { }
+  };
+
+  // FITUR 1: HAPUS PESANAN TERSIMPAN
+  const deleteSavedOrder = async (orderId: string) => {
+    setSavedOrders((prev) => prev.filter((so) => so.id !== orderId));
+    if (activeSavedOrderId === orderId) {
+      setActiveSavedOrderId(null);
+      setActiveSavedOrderName(null);
+      try {
+        localStorage.removeItem("pos_active_saved_order_id");
+        localStorage.removeItem("pos_active_saved_order_name");
+      } catch (e) { }
+    }
+
+    try {
+      await fetch(`/api/saved-orders?id=${orderId}`, {
+        method: "DELETE",
+      });
+    } catch (err) {
+      console.error("Gagal menghapus pesanan tersimpan dari server:", err);
+    }
+  };
+
+  // HAPUS 1 TRANSAKSI RIWAYAT PENJUALAN
+  const deleteTransaction = async (txId: string): Promise<boolean> => {
+    setTransactions((prev) => prev.filter((t) => t.id !== txId));
+    try {
+      const res = await fetch(`/api/orders?id=${txId}`, {
+        method: "DELETE",
+      });
+      return res.ok;
+    } catch (err) {
+      console.error("Gagal menghapus transaksi dari database:", err);
+      return false;
+    }
+  };
+
+  // HAPUS BANYAK TRANSAKSI (BULK DELETE)
+  const deleteBulkTransactions = async (txIds: string[]): Promise<boolean> => {
+    setTransactions((prev) => prev.filter((t) => !txIds.includes(t.id)));
+    try {
+      const res = await fetch("/api/orders", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: txIds }),
+      });
+      return res.ok;
+    } catch (err) {
+      console.error("Gagal menghapus transaksi dari database:", err);
+      return false;
+    }
+  };
+
   // PROSES PEMBAYARAN & INCREMENT ANTREAN HARIAN
   const completePayment = (method: PaymentMethod, cashReceived?: number): Transaction => {
     const subtotal = cart.reduce(
@@ -354,6 +547,11 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem("pos_queue_date", dateStr);
       return next;
     });
+
+    // Otomatis hapus pesanan dari daftar tersimpan jika pesanan ini sebelumnya ditahan
+    if (activeSavedOrderId) {
+      deleteSavedOrder(activeSavedOrderId);
+    }
 
     clearCart();
     setIsMobileCartOpen(false);
@@ -435,6 +633,15 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         storeInfo,
         isMobileCartOpen,
         setIsMobileCartOpen,
+        savedOrders,
+        activeSavedOrderId,
+        activeSavedOrderName,
+        setActiveSavedOrderId,
+        setActiveSavedOrderName,
+        isSaveOrderOpen,
+        setIsSaveOrderOpen,
+        isSavedOrdersOpen,
+        setIsSavedOrdersOpen,
         addToCart,
         updateQuantity,
         removeFromCart,
@@ -444,11 +651,17 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         toggleMenuStatus,
         deleteMenu,
         completePayment,
+        deleteTransaction,
+        deleteBulkTransactions,
         getDailyRecap,
         resetQueueCounter,
         updateQrisImage,
         resetQrisImage,
         updateStoreInfo,
+        saveCurrentOrder,
+        loadSavedOrder,
+        deleteSavedOrder,
+        fetchSavedOrders,
       }}
     >
       {children}

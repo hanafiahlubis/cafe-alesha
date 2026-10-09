@@ -5,6 +5,8 @@ import { usePOS } from "@/context/POSContext";
 import { CategoryType, MenuItem, PaymentMethod, Transaction } from "@/types/pos";
 import { PaymentModal } from "./PaymentModal";
 import { ReceiptModal } from "./ReceiptModal";
+import { SaveOrderModal } from "./SaveOrderModal";
+import { SavedOrdersModal } from "./SavedOrdersModal";
 
 export const PosTerminal: React.FC = () => {
   const {
@@ -13,6 +15,15 @@ export const PosTerminal: React.FC = () => {
     currentQueueNumber,
     isMobileCartOpen,
     setIsMobileCartOpen,
+    savedOrders,
+    activeSavedOrderId,
+    activeSavedOrderName,
+    setActiveSavedOrderId,
+    setActiveSavedOrderName,
+    isSaveOrderOpen,
+    setIsSaveOrderOpen,
+    isSavedOrdersOpen,
+    setIsSavedOrdersOpen,
     addToCart,
     updateQuantity,
     removeFromCart,
@@ -78,42 +89,77 @@ export const PosTerminal: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F0F7FF] dark:bg-slate-950 pt-16 sm:pt-20 pb-24 lg:pb-12 text-slate-900 dark:text-slate-50 transition-colors duration-200">
+    <div className="min-h-screen bg-[#F0F7FF] dark:bg-slate-950 pt-16 sm:pt-20 pb-36 sm:pb-40 md:pb-24 lg:pb-12 text-slate-900 dark:text-slate-50 transition-colors duration-200">
       <div className="mx-auto max-w-7xl px-2 sm:px-4 lg:px-8">
-        <div className="mb-2.5 sm:mb-4 flex items-center justify-between gap-2 rounded-2xl bg-white dark:bg-slate-900 p-2.5 sm:p-4 shadow-sm border border-blue-100 dark:border-slate-800">
-          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-            <div className="flex h-8 w-8 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md shadow-blue-500/20 text-sm sm:text-xl">
-              🏪
+        {/* HEADER TOP BAR - RAPI DI MOBILE (320PX) & TABLET */}
+        <div className="mb-2.5 sm:mb-4 rounded-2xl bg-white dark:bg-slate-900 p-2.5 sm:p-3.5 shadow-sm border border-blue-100 dark:border-slate-800">
+          <div className="flex items-center justify-between gap-1.5 sm:gap-3">
+            {/* Title & Icon Kasir */}
+            <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+              <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-xl bg-blue-600 text-white shadow-md shadow-blue-500/20 text-sm sm:text-lg">
+                🏪
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-xs sm:text-base md:text-lg font-black text-slate-900 dark:text-white leading-tight truncate">
+                  Menu Kasir (POS)
+                </h1>
+                <p className="text-[10px] text-slate-400 truncate hidden sm:block">
+                  Pilih menu &amp; konfirmasi pembayaran
+                </p>
+              </div>
             </div>
-            <div className="min-w-0">
-              <h1 className="text-xs sm:text-lg font-black text-slate-900 dark:text-white leading-tight truncate">
-                Menu Kasir (POS)
-              </h1>
-              <p className="text-[10px] text-slate-400 truncate hidden sm:block">
-                Pilih menu dan konfirmasi pembayaran • Terkoneksi NeonDB
-              </p>
-            </div>
-          </div>
 
-          <div className="flex items-center gap-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900 px-2.5 py-1 sm:px-3 sm:py-1.5 shrink-0">
-            <div className="text-right">
-              <span className="text-[8px] sm:text-[9px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider block">
-                Antrean
-              </span>
-              <span className="text-sm sm:text-xl font-black text-blue-700 dark:text-blue-300 leading-none">
-                {currentQueueNumber}
-              </span>
+            {/* Aksi Pesanan Tersimpan & Nomor Antrean */}
+            <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+              {/* FITUR 1: Tombol Akses Pesanan Tersimpan */}
+              <button
+                type="button"
+                onClick={() => setIsSavedOrdersOpen(true)}
+                className={`flex items-center gap-1 rounded-xl border px-2 py-1 sm:px-2.5 sm:py-1.5 text-[11px] sm:text-xs font-bold transition cursor-pointer active:scale-95 shadow-sm shrink-0 ${
+                  savedOrders.length > 0
+                    ? "border-amber-400 bg-amber-500 text-white shadow-amber-500/25"
+                    : "border-slate-200 dark:border-slate-700 bg-amber-50/70 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300"
+                }`}
+                title="Lihat daftar pesanan tersimpan"
+              >
+                <span>📋</span>
+                <span className="hidden xs:inline">Tersimpan</span>
+                {savedOrders.length > 0 && (
+                  <span className={`flex h-4 min-w-4 px-1 items-center justify-center rounded-full text-[9px] font-black ${
+                    savedOrders.length > 0
+                      ? "bg-white text-amber-600"
+                      : "bg-amber-600 text-white"
+                  }`}>
+                    {savedOrders.length}
+                  </span>
+                )}
+              </button>
+
+              {/* Antrean Info */}
+              <div className="flex items-center gap-1 sm:gap-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-900 px-2 py-1 sm:px-2.5 sm:py-1 shrink-0">
+                <div className="text-right">
+                  <span className="text-[7px] sm:text-[8px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider block leading-none">
+                    Antrean
+                  </span>
+                  <span className="text-xs sm:text-sm md:text-base font-black text-blue-700 dark:text-blue-300 leading-tight">
+                    {currentQueueNumber}
+                  </span>
+                </div>
+                <span className="inline-flex h-1.5 w-1.5 sm:h-2 sm:w-2 relative shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 sm:h-2 sm:w-2 bg-blue-600"></span>
+                </span>
+              </div>
             </div>
-            <span className="inline-flex h-2 w-2 relative shrink-0">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
-            </span>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 sm:gap-5 items-start">
-          <div className="lg:col-span-7 xl:col-span-8 space-y-2.5 sm:space-y-4">
-            <div className="rounded-2xl bg-white dark:bg-slate-900 p-2.5 sm:p-3.5 shadow-sm border border-blue-100 dark:border-slate-800 space-y-2">
+        {/* LAYOUT GRID: OPTIMAL DI MOBILE, TABLET (MD: 2 KOLOM), & DESKTOP (LG: 2 KOLOM) */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-2.5 sm:gap-3 lg:gap-5 items-start">
+          {/* KOLOM KIRI: KATALOG MENU */}
+          <div className="md:col-span-7 lg:col-span-7 xl:col-span-8 space-y-2 sm:space-y-3">
+            {/* Filter Kategori */}
+            <div className="rounded-2xl bg-white dark:bg-slate-900 p-2 sm:p-3 shadow-sm border border-blue-100 dark:border-slate-800 space-y-2">
               <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar -mx-0.5 px-0.5">
                 {categories.map((cat) => {
                   const isActive = activeCategory === cat;
@@ -126,7 +172,7 @@ export const PosTerminal: React.FC = () => {
                       key={cat}
                       type="button"
                       onClick={() => setActiveCategory(cat)}
-                      className={`flex items-center gap-1 rounded-xl px-2.5 py-1.5 sm:px-3.5 sm:py-2 text-[11px] sm:text-xs font-bold whitespace-nowrap transition cursor-pointer active:scale-95 shrink-0 ${isActive
+                      className={`flex items-center gap-1 rounded-xl px-2.5 py-1.5 sm:px-3 sm:py-2 text-[11px] sm:text-xs font-bold whitespace-nowrap transition cursor-pointer active:scale-95 shrink-0 ${isActive
                           ? "bg-blue-600 text-white shadow-md shadow-blue-500/25"
                           : "bg-sky-50/70 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-blue-100/70 dark:hover:bg-slate-700 border border-blue-100 dark:border-transparent"
                         }`}
@@ -136,9 +182,9 @@ export const PosTerminal: React.FC = () => {
                       </span>
                       <span>{cat}</span>
                       <span
-                        className={`rounded-full px-1.5 py-0.2 text-[9px] font-bold ${isActive
-                            ? "bg-white/20 text-white"
-                            : "bg-blue-100 dark:bg-slate-700 text-blue-700 dark:text-slate-400"
+                        className={`ml-0.5 rounded-md px-1 py-0.2 text-[9px] font-black ${isActive
+                            ? "bg-blue-500/40 text-white"
+                            : "bg-blue-100 dark:bg-slate-700 text-blue-700 dark:text-blue-300"
                           }`}
                       >
                         {count}
@@ -148,111 +194,124 @@ export const PosTerminal: React.FC = () => {
                 })}
               </div>
 
+              {/* Search Bar */}
               <div className="relative">
-                <svg
-                  className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                  />
-                </svg>
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Cari menu..."
-                  className="w-full rounded-xl border border-blue-200/80 dark:border-slate-800 bg-sky-50/40 dark:bg-slate-800/60 pl-8 pr-3 py-1.5 sm:py-2 text-xs text-slate-900 dark:text-white focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                  placeholder="Cari nama kopi, makanan, snack..."
+                  className="w-full rounded-xl border border-blue-100 dark:border-slate-800 bg-sky-50/40 dark:bg-slate-800/80 px-3 py-1.5 sm:py-2 pl-8 sm:pl-9 text-xs sm:text-sm text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                 />
+                <span className="absolute left-2.5 sm:left-3 top-1.5 sm:top-2 text-xs text-slate-400">
+                  🔍
+                </span>
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-2.5 top-1.5 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                )}
               </div>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-3.5">
-              {filteredMenu.map((item) => {
-                const isHabis = item.status === "Habis";
-                return (
-                  <div
-                    key={item.id}
-                    onClick={() => !isHabis && addToCart(item)}
-                    className={`group relative flex flex-col justify-between rounded-2xl bg-white dark:bg-slate-900 p-2 sm:p-3 border transition shadow-sm shadow-blue-500/5 ${isHabis
-                        ? "opacity-60 border-slate-200 dark:border-slate-800 cursor-not-allowed bg-slate-100/50 dark:bg-slate-900/50"
-                        : "border-blue-100/90 dark:border-slate-800 hover:border-blue-400 hover:shadow-md hover:shadow-blue-500/10 cursor-pointer active:scale-98"
-                      }`}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between gap-1 mb-1">
-                        <span className="text-[9px] font-semibold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-1.5 py-0.5 rounded-md truncate max-w-[62%] border border-blue-100/80 dark:border-transparent">
-                          {getCategoryIcon(item.category)} {item.category}
-                        </span>
-                        {isHabis ? (
-                          <span className="shrink-0 text-[8px] font-black text-white bg-rose-500 px-1.5 py-0.5 rounded uppercase tracking-wider">
-                            HABIS
+            {/* Grid Daftar Menu */}
+            {filteredMenu.length === 0 ? (
+              <div className="rounded-2xl bg-white dark:bg-slate-900 p-8 text-center border border-blue-100 dark:border-slate-800 space-y-2">
+                <span className="text-3xl">☕</span>
+                <p className="text-xs sm:text-sm font-bold text-slate-700 dark:text-slate-200">
+                  Tidak ada menu yang sesuai
+                </p>
+                <p className="text-[10px] sm:text-xs text-slate-400">
+                  Coba ubah kata kunci pencarian atau ganti kategori.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-2.5">
+                {filteredMenu.map((item) => {
+                  const isSoldOut = item.status === "Habis";
+                  const cartItem = cart.find((c) => c.menuItem.id === item.id);
+                  const inCartQty = cartItem?.quantity || 0;
+
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => !isSoldOut && addToCart(item)}
+                      className={`group relative flex flex-col justify-between overflow-hidden rounded-2xl bg-white dark:bg-slate-900 p-2 sm:p-2.5 shadow-sm border transition duration-200 ${isSoldOut
+                          ? "opacity-60 cursor-not-allowed border-slate-200 dark:border-slate-800"
+                          : "hover:shadow-md hover:border-blue-300 dark:hover:border-blue-600 cursor-pointer border-blue-100/80 dark:border-slate-800 active:scale-98"
+                        }`}
+                    >
+                      <div className="space-y-1">
+                        {/* Header Kartu: Kategori & Badge Kuantitas Rapi */}
+                        <div className="flex items-center justify-between gap-1">
+                          <div className="flex items-center gap-1">
+                            <span className="text-sm sm:text-base">
+                              {getCategoryIcon(item.category)}
+                            </span>
+                            {inCartQty > 0 && (
+                              <span className="flex h-4 min-w-4 sm:h-5 sm:min-w-5 px-1 items-center justify-center rounded-full bg-blue-600 text-white font-black text-[9px] sm:text-[10px] shadow-sm animate-scaleIn">
+                                {inCartQty}x
+                              </span>
+                            )}
+                          </div>
+                          <span
+                            className={`rounded-md px-1.5 py-0.5 text-[8px] sm:text-[9px] font-bold ${isSoldOut
+                                ? "bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400"
+                                : "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400"
+                              }`}
+                          >
+                            {item.status}
                           </span>
-                        ) : (
-                          <span className="shrink-0 text-[8px] font-bold text-emerald-700 bg-emerald-50 dark:bg-emerald-950/60 dark:text-emerald-400 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-transparent">
-                            Tersedia
-                          </span>
-                        )}
+                        </div>
+
+                        <div>
+                          <h3 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white line-clamp-1 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition">
+                            {item.name}
+                          </h3>
+                          <p className="text-[9px] sm:text-[10px] text-slate-400 line-clamp-1 mt-0.5">
+                            {item.description || "Tanpa deskripsi"}
+                          </p>
+                        </div>
                       </div>
 
-                      <h3 className="font-bold text-slate-900 dark:text-white text-[11px] sm:text-sm group-hover:text-blue-600 transition leading-snug line-clamp-2 min-h-[1.9rem]">
-                        {item.name}
-                      </h3>
-                      <p className="text-[10px] text-slate-400 line-clamp-1 mt-0.5 hidden sm:block">
-                        {item.description}
-                      </p>
+                      <div className="mt-2 pt-1.5 border-t border-blue-50 dark:border-slate-800 flex items-center justify-between">
+                        <span className="text-[11px] sm:text-xs md:text-sm font-extrabold text-blue-600 dark:text-blue-400">
+                          {formatIDR(item.price)}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={isSoldOut}
+                          className={`flex h-6 w-6 sm:h-6.5 sm:w-6.5 items-center justify-center rounded-lg font-bold text-xs transition ${isSoldOut
+                              ? "bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed"
+                              : "bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 group-hover:bg-blue-600 group-hover:text-white shadow-sm"
+                            }`}
+                        >
+                          +
+                        </button>
+                      </div>
                     </div>
-
-                    <div className="mt-2 flex items-center justify-between pt-1.5 border-t border-blue-50 dark:border-slate-800 gap-1">
-                      <span className="text-[11px] sm:text-sm font-black text-blue-600 dark:text-blue-400 truncate">
-                        {formatIDR(item.price)}
-                      </span>
-                      <button
-                        type="button"
-                        disabled={isHabis}
-                        aria-label={`Tambah ${item.name}`}
-                        className={`flex h-6 w-6 sm:h-7 sm:w-7 shrink-0 items-center justify-center rounded-lg font-bold text-xs sm:text-sm transition ${isHabis
-                            ? "bg-slate-200 dark:bg-slate-800 text-slate-400 cursor-not-allowed"
-                            : "bg-blue-600 text-white hover:bg-blue-700 shadow-sm shadow-blue-600/20 group-hover:scale-105 active:scale-95 cursor-pointer"
-                          }`}
-                      >
-                        +
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {filteredMenu.length === 0 && (
-              <div className="rounded-2xl bg-white dark:bg-slate-900 p-6 sm:p-12 text-center border border-blue-100 dark:border-slate-800 shadow-sm">
-                <span className="text-2xl sm:text-4xl">🔍</span>
-                <h4 className="mt-2 text-xs sm:text-base font-bold text-slate-900 dark:text-white">
-                  Menu Tidak Ditemukan
-                </h4>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  Coba kata kunci lain atau tambah menu baru di tab Kelola Menu.
-                </p>
+                  );
+                })}
               </div>
             )}
           </div>
 
-          <div className="hidden lg:block lg:col-span-5 xl:col-span-4 sticky top-24">
-            <div className="rounded-2xl bg-white dark:bg-slate-900 shadow-xl border border-blue-100 dark:border-slate-800 overflow-hidden flex flex-col max-h-[calc(100vh-7rem)]">
-              <div className="p-4 bg-gradient-to-r from-blue-600 to-sky-600 text-white flex items-center justify-between">
+          {/* KOLOM KANAN: PANEL KERANJANG AKTIF DI TABLET (MD) & DESKTOP (LG) */}
+          <div className="hidden md:block md:col-span-5 lg:col-span-5 xl:col-span-4 sticky top-20">
+            <div className="rounded-2xl bg-white dark:bg-slate-900 shadow-xl border border-blue-100 dark:border-slate-800 overflow-hidden flex flex-col max-h-[calc(100vh-6rem)]">
+              <div className="p-3 sm:p-3.5 bg-gradient-to-r from-blue-600 to-sky-600 text-white flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <span className="text-xl">🛒</span>
+                  <span className="text-lg">🛒</span>
                   <div>
-                    <h2 className="font-bold text-base leading-tight">
+                    <h2 className="font-bold text-sm sm:text-base leading-tight">
                       Keranjang Pesanan
                     </h2>
-                    <span className="text-[11px] text-blue-100">
-                      Antrean: <strong className="text-white">{currentQueueNumber}</strong> (Tanpa Meja)
+                    <span className="text-[10px] text-blue-100">
+                      Antrean: <strong className="text-white">{currentQueueNumber}</strong>
                     </span>
                   </div>
                 </div>
@@ -267,57 +326,93 @@ export const PosTerminal: React.FC = () => {
                 )}
               </div>
 
-              <div className="flex-1 overflow-y-auto p-4 divide-y divide-blue-50 dark:divide-slate-800">
+              {/* Banner Indikator Pesanan Aktif (Sedang diedit / ditambah menu) */}
+              {activeSavedOrderName && (
+                <div className="bg-amber-100 dark:bg-amber-950/80 px-3 py-1.5 border-b border-amber-200 dark:border-amber-900/60 flex items-center justify-between text-xs animate-fadeIn">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="text-amber-800 dark:text-amber-400 font-bold">🏷️ Pesanan:</span>
+                    <span className="font-extrabold text-slate-900 dark:text-white truncate">
+                      {activeSavedOrderName}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveSavedOrderId(null);
+                      setActiveSavedOrderName(null);
+                    }}
+                    className="text-[10px] text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 underline cursor-pointer shrink-0 ml-1"
+                    title="Lepas asosiasi pesanan ini agar menjadi pesanan baru"
+                  >
+                    Lepas
+                  </button>
+                </div>
+              )}
+
+              {/* Items Keranjang */}
+              <div className="flex-1 overflow-y-auto p-3 divide-y divide-blue-50 dark:divide-slate-800">
                 {cart.length === 0 ? (
-                  <div className="py-12 text-center space-y-2">
-                    <span className="text-4xl opacity-50">🛒</span>
-                    <p className="text-sm font-semibold text-slate-600 dark:text-slate-400">
+                  <div className="py-10 text-center space-y-2">
+                    <span className="text-3xl opacity-50">🛒</span>
+                    <p className="text-xs sm:text-sm font-semibold text-slate-600 dark:text-slate-400">
                       Keranjang Masih Kosong
                     </p>
-                    <p className="text-xs text-slate-400 max-w-[200px] mx-auto">
-                      Klik menu makanan / minuman di samping untuk menambahkan pesanan.
+                    <p className="text-[10px] sm:text-xs text-slate-400 max-w-[180px] mx-auto">
+                      Pilih menu di samping untuk menambahkan pesanan kasir.
                     </p>
+                    {savedOrders.length > 0 && (
+                      <div className="pt-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setIsSavedOrdersOpen(true)}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 text-xs font-bold shadow-md shadow-amber-500/20 transition active:scale-95 cursor-pointer"
+                        >
+                          <span>📋</span>
+                          <span>Buka {savedOrders.length} Pesanan Tersimpan</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   cart.map((item) => (
-                    <div key={item.menuItem.id} className="py-3 first:pt-0 last:pb-0 flex items-center justify-between gap-3">
+                    <div key={item.menuItem.id} className="py-2.5 first:pt-0 last:pb-0 flex items-center justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <h4 className="font-bold text-sm text-slate-900 dark:text-white truncate">
+                        <h4 className="font-bold text-xs sm:text-sm text-slate-900 dark:text-white truncate">
                           {item.menuItem.name}
                         </h4>
-                        <span className="text-xs text-slate-500 font-medium">
+                        <span className="text-[11px] text-slate-500 font-medium">
                           {formatIDR(item.menuItem.price)}
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1">
                         <button
                           type="button"
                           onClick={() => updateQuantity(item.menuItem.id, -1)}
-                          className="flex h-7 w-7 items-center justify-center rounded-lg bg-sky-50 dark:bg-slate-800 font-bold text-slate-600 dark:text-slate-300 hover:bg-sky-100 dark:hover:bg-slate-700 transition cursor-pointer border border-blue-100 dark:border-transparent"
+                          className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-lg bg-sky-50 dark:bg-slate-800 font-bold text-slate-700 dark:text-slate-200 border border-blue-100 dark:border-transparent hover:bg-sky-100 transition cursor-pointer"
                         >
                           -
                         </button>
-                        <span className="w-6 text-center font-bold text-sm text-slate-900 dark:text-white">
+                        <span className="w-5 text-center font-bold text-xs sm:text-sm text-slate-900 dark:text-white">
                           {item.quantity}
                         </span>
                         <button
                           type="button"
                           onClick={() => updateQuantity(item.menuItem.id, 1)}
-                          className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/60 font-bold text-blue-700 dark:text-blue-300 hover:bg-blue-200 transition cursor-pointer"
+                          className="flex h-6 w-6 sm:h-7 sm:w-7 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/60 font-bold text-blue-700 dark:text-blue-300 hover:bg-blue-200 transition cursor-pointer"
                         >
                           +
                         </button>
                       </div>
 
-                      <div className="text-right min-w-[70px]">
+                      <div className="text-right min-w-[65px]">
                         <div className="text-xs font-bold text-slate-900 dark:text-white">
                           {formatIDR(item.menuItem.price * item.quantity)}
                         </div>
                         <button
                           type="button"
                           onClick={() => removeFromCart(item.menuItem.id)}
-                          className="text-[10px] text-rose-500 hover:underline mt-0.5 cursor-pointer"
+                          className="text-[9px] text-rose-500 hover:underline mt-0.5 cursor-pointer"
                         >
                           Hapus
                         </button>
@@ -327,8 +422,9 @@ export const PosTerminal: React.FC = () => {
                 )}
               </div>
 
+              {/* Subtotal & Tombol Aksi Keranjang Tablet / Desktop */}
               {cart.length > 0 && (
-                <div className="p-4 bg-sky-50/60 dark:bg-slate-800/80 border-t border-blue-100 dark:border-slate-800 space-y-3">
+                <div className="p-3 sm:p-4 bg-sky-50/60 dark:bg-slate-800/80 border-t border-blue-100 dark:border-slate-800 space-y-2.5">
                   <div className="space-y-1 text-xs">
                     <div className="flex justify-between text-slate-600 dark:text-slate-400">
                       <span>Total Item:</span>
@@ -338,7 +434,7 @@ export const PosTerminal: React.FC = () => {
                       <span>Subtotal:</span>
                       <span className="font-semibold">{formatIDR(subtotal)}</span>
                     </div>
-                    <div className="flex justify-between text-base font-extrabold text-slate-900 dark:text-white border-t border-blue-200/80 dark:border-slate-700 pt-1.5">
+                    <div className="flex justify-between text-sm sm:text-base font-extrabold text-slate-900 dark:text-white border-t border-blue-200/80 dark:border-slate-700 pt-1">
                       <span>TOTAL BAYAR:</span>
                       <span className="text-blue-600 dark:text-blue-400">
                         {formatIDR(total)}
@@ -346,13 +442,33 @@ export const PosTerminal: React.FC = () => {
                     </div>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => setIsPaymentOpen(true)}
-                    className="w-full rounded-xl bg-blue-600 py-3.5 text-base font-bold text-white shadow-lg shadow-blue-600/30 hover:bg-blue-700 transition flex items-center justify-center gap-2 cursor-pointer active:scale-98"
-                  >
-                    <span>💳</span> Lanjut Bayar ({formatIDR(total)})
-                  </button>
+                  {/* Tombol Simpan/Perbarui Pesanan & Lanjut Bayar */}
+                  <div className="space-y-1.5 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setIsPaymentOpen(true)}
+                      className="w-full rounded-xl bg-blue-600 py-3 text-sm sm:text-base font-bold text-white shadow-lg shadow-blue-600/30 hover:bg-blue-700 transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-98"
+                    >
+                      <span>💳</span> Lanjut Bayar ({formatIDR(total)})
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setIsSaveOrderOpen(true)}
+                      className={`w-full rounded-xl border-2 py-2 text-xs sm:text-sm font-bold transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-98 ${
+                        activeSavedOrderName
+                          ? "border-blue-500 bg-blue-50 text-blue-700 hover:bg-blue-100 dark:bg-blue-950/40 dark:border-blue-600 dark:text-blue-300"
+                          : "border-amber-400 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:border-amber-600/80 dark:hover:bg-amber-900/40 text-amber-800 dark:text-amber-300"
+                      }`}
+                    >
+                      <span>💾</span>
+                      <span>
+                        {activeSavedOrderName
+                          ? `Perbarui Pesanan "${activeSavedOrderName}"`
+                          : "Simpan Pesanan (Tahan)"}
+                      </span>
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -360,50 +476,89 @@ export const PosTerminal: React.FC = () => {
         </div>
       </div>
 
-      {cart.length > 0 && (
-        <div className="lg:hidden fixed bottom-3 left-2 right-2 z-30 animate-fadeIn flex gap-2">
-          {/* Tombol Lihat/Edit Keranjang */}
+      {/* MOBILE FLOATING ACTION BAR (< MD) */}
+      <div className="md:hidden fixed bottom-2.5 left-2.5 right-2.5 z-40 animate-fadeIn">
+        {cart.length > 0 ? (
+          <div className="rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-2 shadow-2xl border border-blue-200/90 dark:border-slate-800 space-y-1.5">
+            {/* Baris Atas: Info Keranjang Ringkas */}
+            <div
+              onClick={() => setIsMobileCartOpen(true)}
+              className="flex items-center justify-between px-2.5 py-1.5 bg-blue-50/80 dark:bg-blue-950/60 rounded-xl cursor-pointer hover:bg-blue-100/70 transition border border-blue-100 dark:border-blue-900/40"
+            >
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="flex h-5 min-w-5 px-1 items-center justify-center rounded-full bg-blue-600 text-white text-[10px] font-black shrink-0">
+                  {totalItemCount}
+                </span>
+                <span className="text-[11px] sm:text-xs font-bold text-slate-800 dark:text-white truncate">
+                  {activeSavedOrderName ? `Pesanan: ${activeSavedOrderName}` : "Keranjang Pesanan"}
+                </span>
+                <span className="text-[9px] text-blue-600 dark:text-blue-400 font-semibold hidden xs:inline">
+                  (Rincian ▾)
+                </span>
+              </div>
+              <span className="text-xs font-black text-blue-600 dark:text-blue-400 shrink-0">
+                {formatIDR(total)}
+              </span>
+            </div>
+
+            {/* Baris Bawah: Dua Tombol Aksi Nyaman (Simpan/Perbarui & Bayar) */}
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                type="button"
+                onClick={() => setIsSaveOrderOpen(true)}
+                className={`w-full rounded-xl border py-2 px-2 text-xs font-bold transition flex items-center justify-center gap-1 active:scale-95 shadow-sm cursor-pointer ${
+                  activeSavedOrderName
+                    ? "border-blue-400 bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:border-blue-700 dark:text-blue-300"
+                    : "border-amber-300 dark:border-amber-700 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300"
+                }`}
+              >
+                <span>💾</span>
+                <span className="truncate">
+                  {activeSavedOrderName ? `Perbarui (${activeSavedOrderName})` : "Simpan"}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setIsPaymentOpen(true)}
+                className="w-full rounded-xl bg-gradient-to-r from-blue-600 to-sky-600 hover:from-blue-700 hover:to-sky-700 py-2 px-2 text-white shadow-md shadow-blue-600/30 flex items-center justify-center gap-1 font-bold text-xs active:scale-95 cursor-pointer"
+              >
+                <span>💳</span>
+                <span>Bayar Sekarang</span>
+              </button>
+            </div>
+          </div>
+        ) : savedOrders.length > 0 ? (
           <button
             type="button"
-            onClick={() => setIsMobileCartOpen(true)}
-            className="flex-1 rounded-xl bg-white dark:bg-slate-900 py-2.5 px-3 border border-blue-200 dark:border-slate-700 text-slate-800 dark:text-white shadow-lg flex items-center justify-between font-bold text-xs active:scale-95"
+            onClick={() => setIsSavedOrdersOpen(true)}
+            className="w-full rounded-2xl bg-gradient-to-r from-amber-500 to-orange-500 py-2.5 px-3.5 text-white shadow-xl shadow-amber-500/30 flex items-center justify-between font-bold text-xs active:scale-95 cursor-pointer"
           >
-            <div className="flex items-center gap-1.5">
-              <span className="bg-blue-100 dark:bg-blue-950 text-blue-700 dark:text-blue-300 rounded px-1.5 py-0.5 text-[10px] font-black">
-                {totalItemCount}
-              </span>
-              <span className="text-[11px] truncate">Keranjang</span>
+            <div className="flex items-center gap-2">
+              <span className="text-base">📋</span>
+              <span>Pesanan Tersimpan</span>
             </div>
-            <span className="text-xs font-black text-blue-600 dark:text-blue-400">
-              {formatIDR(total)}
+            <span className="bg-white/20 rounded-full px-2 py-0.5 text-[10px] font-black">
+              {savedOrders.length} Pesanan (Buka) →
             </span>
           </button>
+        ) : null}
+      </div>
 
-          {/* Tombol Bayar Langsung: Memotong alur modal sehingga langsung ke pembayaran */}
-          <button
-            type="button"
-            onClick={() => setIsPaymentOpen(true)}
-            className="flex-1 rounded-xl bg-gradient-to-r from-blue-600 to-sky-600 py-2.5 px-3 text-white shadow-lg shadow-blue-600/30 flex items-center justify-center gap-1.5 font-bold text-xs active:scale-95"
-          >
-            <span>Bayar Sekarang</span>
-            <span>→</span>
-          </button>
-        </div>
-      )}
-
+      {/* MOBILE CART DRAWER (< MD) */}
       {isMobileCartOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 flex flex-col justify-end bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
+        <div className="md:hidden fixed inset-0 z-50 flex flex-col justify-end bg-slate-900/60 backdrop-blur-sm animate-fadeIn">
           <div className="w-full max-h-[85vh] rounded-t-3xl bg-white dark:bg-slate-900 shadow-2xl border-t border-blue-100 dark:border-slate-800 flex flex-col overflow-hidden">
             <div className="pt-2 pb-1 bg-gradient-to-r from-blue-600 to-sky-600">
               <div className="w-10 h-1 bg-white/40 rounded-full mx-auto"></div>
             </div>
 
-            <div className="p-3.5 bg-gradient-to-r from-blue-600 to-sky-600 text-white flex items-center justify-between">
+            <div className="p-3 sm:p-3.5 bg-gradient-to-r from-blue-600 to-sky-600 text-white flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-lg">🛒</span>
                 <div>
                   <h3 className="font-bold text-sm sm:text-base">Keranjang Pesanan</h3>
-                  <p className="text-[10px] sm:text-xs text-blue-100">Antrean {currentQueueNumber} (Tanpa Meja)</p>
+                  <p className="text-[10px] text-blue-100">Antrean {currentQueueNumber}</p>
                 </div>
               </div>
               <button
@@ -414,6 +569,28 @@ export const PosTerminal: React.FC = () => {
                 ✕
               </button>
             </div>
+
+            {/* Banner Pesanan Aktif di Drawer */}
+            {activeSavedOrderName && (
+              <div className="bg-amber-100 dark:bg-amber-950/80 px-3.5 py-1.5 border-b border-amber-200 dark:border-amber-900/60 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-amber-800 dark:text-amber-400 font-bold">🏷️ Pesanan:</span>
+                  <span className="font-extrabold text-slate-900 dark:text-white truncate">
+                    {activeSavedOrderName}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveSavedOrderId(null);
+                    setActiveSavedOrderName(null);
+                  }}
+                  className="text-[10px] text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 underline cursor-pointer shrink-0 ml-1"
+                >
+                  Lepas
+                </button>
+              </div>
+            )}
 
             <div className="flex-1 overflow-y-auto p-3 divide-y divide-blue-50 dark:divide-slate-800 space-y-1.5">
               {cart.map((item) => (
@@ -470,21 +647,51 @@ export const PosTerminal: React.FC = () => {
                   {formatIDR(total)}
                 </span>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsMobileCartOpen(false);
-                  setIsPaymentOpen(true);
-                }}
-                className="w-full rounded-xl bg-blue-600 py-3 text-sm sm:text-base font-bold text-white shadow-lg shadow-blue-600/30 hover:bg-blue-700 transition cursor-pointer active:scale-98"
-              >
-                Lanjut ke Pembayaran
-              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsSaveOrderOpen(true)}
+                  className={`w-full rounded-xl border-2 py-2.5 text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer active:scale-98 ${
+                    activeSavedOrderName
+                      ? "border-blue-400 bg-blue-50 hover:bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:border-blue-700 dark:text-blue-300"
+                      : "border-amber-400 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:border-amber-700 text-amber-800 dark:text-amber-300"
+                  }`}
+                >
+                  <span>💾</span>
+                  <span className="truncate">
+                    {activeSavedOrderName ? `Perbarui (${activeSavedOrderName})` : "Simpan Pesanan"}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileCartOpen(false);
+                    setIsPaymentOpen(true);
+                  }}
+                  className="w-full rounded-xl bg-blue-600 py-2.5 text-xs font-bold text-white shadow-lg shadow-blue-600/30 hover:bg-blue-700 transition cursor-pointer active:scale-98 flex items-center justify-center gap-1.5"
+                >
+                  <span>💳</span> Bayar Sekarang
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
+      {/* MODAL SIMPAN PESANAN */}
+      <SaveOrderModal
+        isOpen={isSaveOrderOpen}
+        onClose={() => setIsSaveOrderOpen(false)}
+      />
+
+      {/* MODAL DAFTAR PESANAN TERSIMPAN */}
+      <SavedOrdersModal
+        isOpen={isSavedOrdersOpen}
+        onClose={() => setIsSavedOrdersOpen(false)}
+        onOpenPayment={() => setIsPaymentOpen(true)}
+      />
+
+      {/* MODAL PEMBAYARAN */}
       <PaymentModal
         isOpen={isPaymentOpen}
         totalAmount={total}
@@ -494,6 +701,7 @@ export const PosTerminal: React.FC = () => {
         onSuccess={handlePaymentSuccess}
       />
 
+      {/* MODAL STRUK */}
       <ReceiptModal
         transaction={completedTx}
         onClose={() => setCompletedTx(null)}

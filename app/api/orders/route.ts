@@ -159,3 +159,53 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+// DELETE: Hapus transaksi penjualan (tunggal via ?id=... atau bulk via body { ids: [...] })
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    let id = searchParams.get("id");
+    let ids: string[] = [];
+
+    try {
+      const body = await req.json();
+      if (body.id) id = body.id;
+      if (Array.isArray(body.ids)) ids = body.ids;
+    } catch (e) {
+      // Body opsional
+    }
+
+    if (id && !ids.includes(id)) {
+      ids.push(id);
+    }
+
+    if (ids.length === 0) {
+      return NextResponse.json(
+        { success: false, message: "ID transaksi yang ingin dihapus wajib disertakan" },
+        { status: 400 }
+      );
+    }
+
+    // 1. Hapus item pesanan terkait untuk menjaga integritas data
+    await prisma.orderItem.deleteMany({
+      where: { orderId: { in: ids } },
+    });
+
+    // 2. Hapus transaksi dari tabel order
+    const result = await prisma.order.deleteMany({
+      where: { id: { in: ids } },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: `${result.count} transaksi berhasil dihapus dari riwayat`,
+      deletedCount: result.count,
+    });
+  } catch (error: any) {
+    console.error("DELETE /api/orders error:", error);
+    return NextResponse.json(
+      { success: false, message: "Gagal menghapus transaksi", error: error.message },
+      { status: 500 }
+    );
+  }
+}

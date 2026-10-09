@@ -21,6 +21,14 @@ interface FinancialSummary {
     netProfit: number;
 }
 
+interface BalanceItem {
+    id?: string;
+    type: "CASH" | "QRIS";
+    actualAmount: number;
+    note?: string | null;
+    updatedAt?: string;
+}
+
 export const ExpenseManagement: React.FC = () => {
     const { transactions, menuList } = usePOS();
 
@@ -54,6 +62,17 @@ export const ExpenseManagement: React.FC = () => {
     });
     const [isLoading, setIsLoading] = useState<boolean>(false);
 
+    // FITUR 2: State Sisa Saldo Riil Kas & Bank QRIS
+    const [cashBalance, setCashBalance] = useState<BalanceItem | null>(null);
+    const [qrisBalance, setQrisBalance] = useState<BalanceItem | null>(null);
+
+    // State Modal Edit Sisa Saldo
+    const [isBalanceModalOpen, setIsBalanceModalOpen] = useState<boolean>(false);
+    const [editingType, setEditingType] = useState<"CASH" | "QRIS">("CASH");
+    const [balanceInput, setBalanceInput] = useState<string>("");
+    const [balanceNoteInput, setBalanceNoteInput] = useState<string>("");
+    const [isSavingBalance, setIsSavingBalance] = useState<boolean>(false);
+
     // State Modal Tambah Pengeluaran
     const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
     const [title, setTitle] = useState<string>("");
@@ -69,6 +88,22 @@ export const ExpenseManagement: React.FC = () => {
             currency: "IDR",
             minimumFractionDigits: 0,
         }).format(val);
+    };
+
+    const formatDateTime = (dateStr?: string) => {
+        if (!dateStr) return "Belum disesuaikan";
+        try {
+            const d = new Date(dateStr);
+            return d.toLocaleDateString("id-ID", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+            });
+        } catch {
+            return dateStr;
+        }
     };
 
     // KALKULASI RUMUS HPP MENU: (Harga Jual - HPP = Total Keuntungan Menu)
@@ -110,6 +145,39 @@ export const ExpenseManagement: React.FC = () => {
         };
     }, [transactions, menuList, startDate, endDate]);
 
+    // Fetch saldo riil terkini
+    const fetchBalances = async () => {
+        try {
+            const res = await fetch("/api/balances");
+            if (res.ok) {
+                const json = await res.json();
+                if (json.success && json.data) {
+                    if (json.data.cash) {
+                        setCashBalance(json.data.cash);
+                        localStorage.setItem("pos_balance_cash", JSON.stringify(json.data.cash));
+                    }
+                    if (json.data.qris) {
+                        setQrisBalance(json.data.qris);
+                        localStorage.setItem("pos_balance_qris", JSON.stringify(json.data.qris));
+                    }
+                }
+            }
+        } catch (err) {
+            console.warn("Gagal memuat saldo riil dari API, membaca cache lokal:", err);
+        }
+    };
+
+    // Load cache saldo saat mount
+    useEffect(() => {
+        try {
+            const cachedCash = localStorage.getItem("pos_balance_cash");
+            if (cachedCash) setCashBalance(JSON.parse(cachedCash));
+            const cachedQris = localStorage.getItem("pos_balance_qris");
+            if (cachedQris) setQrisBalance(JSON.parse(cachedQris));
+        } catch (e) { }
+        fetchBalances();
+    }, []);
+
     // Fetch data pengeluaran dan ringkasan finansial dari API
     const fetchExpenses = async () => {
         setIsLoading(true);
@@ -119,6 +187,10 @@ export const ExpenseManagement: React.FC = () => {
             if (json.success && json.data) {
                 setExpenses(json.data.expenses);
                 setSummary(json.data.summary);
+                if (json.data.balances) {
+                    if (json.data.balances.cash) setCashBalance(json.data.balances.cash);
+                    if (json.data.balances.qris) setQrisBalance(json.data.balances.qris);
+                }
             }
         } catch (err) {
             console.error(err);
@@ -142,6 +214,72 @@ export const ExpenseManagement: React.FC = () => {
     const handleShortcutThisMonth = () => {
         setStartDate(getFirstDayOfMonth());
         setEndDate(getTodayStr());
+    };
+
+    // FITUR 2: Buka Modal Edit Sisa Saldo
+    const handleOpenEditBalance = (type: "CASH" | "QRIS") => {
+        setEditingType(type);
+        const current = type === "CASH" ? cashBalance : qrisBalance;
+        setBalanceInput(current?.actualAmount !== undefined ? String(current.actualAmount) : "");
+        setBalanceNoteInput(current?.note || "");
+        setIsBalanceModalOpen(true);
+    };
+
+    // FITUR 2: Simpan Sisa Saldo Riil
+    const handleSaveBalance = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const rawNum = balanceInput.replace(/\D/g, "");
+        const numVal = rawNum ? parseInt(rawNum, 10) : 0;
+
+        if (isNaN(numVal) || numVal < 0) {
+            toast.error("Nominal saldo tidak valid!");
+            return;
+        }
+
+        setIsSavingBalance(true);
+        try {
+            const res = await fetch("/api/balances", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    type: editingType,
+                    actualAmount: numVal,
+                    note: balanceNoteInput.trim() || undefined,
+                }),
+            });
+
+            const newBalance: BalanceItem = {
+                type: editingType,
+                actualAmount: numVal,
+                note: balanceNoteInput.trim() || null,
+                updatedAt: new Date().toISOString(),
+            };
+
+            if (editingType === "CASH") {
+                setCashBalance(newBalance);
+                localStorage.setItem("pos_balance_cash", JSON.stringify(newBalance));
+            } else {
+                setQrisBalance(newBalance);
+                localStorage.setItem("pos_balance_qris", JSON.stringify(newBalance));
+            }
+
+            if (res.ok) {
+                const json = await res.json();
+                if (json.data) {
+                    if (editingType === "CASH") setCashBalance(json.data);
+                    else setQrisBalance(json.data);
+                }
+            }
+
+            toast.success(
+                `Sisa saldo ${editingType === "CASH" ? "Tersisa di Toko (Cash)" : "Tersisa di Bank (QRIS)"} berhasil disimpan!`
+            );
+            setIsBalanceModalOpen(false);
+        } catch (err: any) {
+            toast.error(err.message || "Gagal menyimpan saldo riil");
+        } finally {
+            setIsSavingBalance(false);
+        }
     };
 
     // Handle Simpan Pengeluaran Baru
@@ -187,8 +325,8 @@ export const ExpenseManagement: React.FC = () => {
 
     return (
         <div className="min-h-screen bg-[#F0F7FF] dark:bg-slate-950 pt-2 sm:pt-20 pb-32 text-slate-900 dark:text-slate-50 transition-colors duration-200 overflow-x-hidden">
-            <div className="mx-auto max-w-7xl px-2.5 sm:px-4 lg:px-8 space-y-2.5 sm:space-y-4">
-                {/* HEADER & DATE RANGE FILTER (RAPI 100% DI 320PX) */}
+            <div className="mx-auto max-w-7xl px-2.5 sm:px-4 lg:px-8 space-y-3 sm:space-y-4">
+                {/* HEADER & DATE RANGE FILTER */}
                 <div className="rounded-2xl bg-white dark:bg-slate-900 p-3 sm:p-4 shadow-sm border border-blue-100 dark:border-slate-800 space-y-2.5">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                         <div>
@@ -234,7 +372,7 @@ export const ExpenseManagement: React.FC = () => {
                             </button>
                         </div>
 
-                        {/* INPUT TANGGAL RESPONSIF (TIDAK AKAN TERCROP DI 320PX) */}
+                        {/* INPUT TANGGAL RESPONSIF */}
                         <div className="grid grid-cols-2 gap-1.5 sm:flex sm:items-center sm:gap-2">
                             <div className="w-full sm:w-auto">
                                 <label className="block text-[8px] sm:hidden font-bold uppercase text-slate-400 mb-0.5">
@@ -269,8 +407,130 @@ export const ExpenseManagement: React.FC = () => {
                     </div>
                 </div>
 
+                {/* FITUR 2: 2 KARTU INFORMASI BARU DENGAN TOMBOL EDIT PENSIL */}
+                {/* 1. Tersisa di Toko (Cash) & 2. Tersisa di Bank (QRIS) */}
+                <div className="rounded-2xl bg-white dark:bg-slate-900 p-3 sm:p-4 shadow-sm border border-blue-100 dark:border-slate-800 space-y-2.5">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+                        <div className="flex items-center gap-1.5 sm:gap-2">
+                            <span className="text-base sm:text-xl">⚖️</span>
+                            <div>
+                                <h2 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                                    Penyesuaian Sisa Saldo Riil Kasir &amp; Bank
+                                </h2>
+                                <p className="text-[10px] text-slate-400">
+                                    Pencatatan sisa saldo fisik di kasir dan rekening bank sesuai uang riil.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
+                        {/* KARTU 1: Tersisa di Toko (Cash) */}
+                        <div className="rounded-2xl bg-gradient-to-br from-emerald-50/70 to-white dark:from-slate-900 dark:to-emerald-950/20 p-3.5 sm:p-4 border-2 border-emerald-300 dark:border-emerald-800/80 shadow-sm relative overflow-hidden group hover:border-emerald-500 transition duration-200">
+                            <div className="flex items-start justify-between gap-2">
+                                <div className="space-y-0.5">
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-base sm:text-lg">💵</span>
+                                        <span className="text-[10px] sm:text-xs font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
+                                            Tersisa di Toko (Cash)
+                                        </span>
+                                    </div>
+                                    <p className="text-[10px] text-slate-400">
+                                        Uang fisik riil yang ada di laci kasir saat ini
+                                    </p>
+                                </div>
+
+                                {/* Tombol Edit (Icon Pensil) */}
+                                <button
+                                    type="button"
+                                    onClick={() => handleOpenEditBalance("CASH")}
+                                    className="flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1.5 text-xs font-bold transition active:scale-95 cursor-pointer shadow-sm shadow-emerald-600/20 shrink-0"
+                                    title="Edit Sisa Saldo Cash"
+                                >
+                                    <svg className="h-3.5 w-3.5 fill-none stroke-current" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                    </svg>
+                                    <span>Edit</span>
+                                </button>
+                            </div>
+
+                            <div className="text-lg sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 mt-2 truncate">
+                                {formatIDR(cashBalance?.actualAmount ?? 0)}
+                            </div>
+
+                            <div className="mt-2 pt-2 border-t border-emerald-100 dark:border-slate-800 text-[10px] text-slate-500 dark:text-slate-400 space-y-0.5">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-slate-400">Terakhir Update:</span>
+                                    <span className="font-semibold text-slate-700 dark:text-slate-300">
+                                        {formatDateTime(cashBalance?.updatedAt)}
+                                    </span>
+                                </div>
+                                {cashBalance?.note && (
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-slate-400">Catatan:</span>
+                                        <span className="italic text-slate-600 dark:text-slate-300 truncate max-w-[200px]">
+                                            "{cashBalance.note}"
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* KARTU 2: Tersisa di Bank (QRIS) */}
+                        <div className="rounded-2xl bg-gradient-to-br from-blue-50/70 to-white dark:from-slate-900 dark:to-blue-950/20 p-3.5 sm:p-4 border-2 border-blue-300 dark:border-blue-800/80 shadow-sm relative overflow-hidden group hover:border-blue-500 transition duration-200">
+                            <div className="flex items-start justify-between gap-2">
+                                <div className="space-y-0.5">
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="text-base sm:text-lg">🏦</span>
+                                        <span className="text-[10px] sm:text-xs font-black text-blue-700 dark:text-blue-400 uppercase tracking-wider">
+                                            Tersisa di Bank (QRIS)
+                                        </span>
+                                    </div>
+                                    <p className="text-[10px] text-slate-400">
+                                        Saldo riil yang tersimpan di rekening bank QRIS
+                                    </p>
+                                </div>
+
+                                {/* Tombol Edit (Icon Pensil) */}
+                                <button
+                                    type="button"
+                                    onClick={() => handleOpenEditBalance("QRIS")}
+                                    className="flex items-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-2.5 py-1.5 text-xs font-bold transition active:scale-95 cursor-pointer shadow-sm shadow-blue-600/20 shrink-0"
+                                    title="Edit Sisa Saldo QRIS"
+                                >
+                                    <svg className="h-3.5 w-3.5 fill-none stroke-current" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                    </svg>
+                                    <span>Edit</span>
+                                </button>
+                            </div>
+
+                            <div className="text-lg sm:text-2xl font-black text-blue-600 dark:text-blue-400 mt-2 truncate">
+                                {formatIDR(qrisBalance?.actualAmount ?? 0)}
+                            </div>
+
+                            <div className="mt-2 pt-2 border-t border-blue-100 dark:border-slate-800 text-[10px] text-slate-500 dark:text-slate-400 space-y-0.5">
+                                <div className="flex justify-between items-center">
+                                    <span className="text-slate-400">Terakhir Update:</span>
+                                    <span className="font-semibold text-slate-700 dark:text-slate-300">
+                                        {formatDateTime(qrisBalance?.updatedAt)}
+                                    </span>
+                                </div>
+                                {qrisBalance?.note && (
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-slate-400">Catatan:</span>
+                                        <span className="italic text-slate-600 dark:text-slate-300 truncate max-w-[200px]">
+                                            "{qrisBalance.note}"
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 {/* FINANCIAL SUMMARY CARDS DENGAN RUMUS HPP MENU & LABA BERSIH */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-3">
                     {/* Card 1: Total Pengeluaran */}
                     <div className="rounded-2xl bg-white dark:bg-slate-900 p-3 sm:p-4 border border-rose-200 dark:border-rose-900/60 shadow-sm">
                         <span className="text-[9px] sm:text-xs font-bold text-rose-500 uppercase tracking-wider block">
@@ -295,36 +555,7 @@ export const ExpenseManagement: React.FC = () => {
                         </p>
                     </div>
 
-                    {/* Card 3 (BARU): RUMUS HPP (Harga Jual - HPP = Total Keuntungan Menu) */}
-                    {/* <div className="rounded-2xl bg-white dark:bg-slate-900 p-3 sm:p-4 border border-blue-200 dark:border-blue-900/60 shadow-sm">
-                        <div className="flex items-center justify-between">
-                            <span className="text-[9px] sm:text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wider block">
-                                LABA KOTOR MENU
-                            </span>
-                            <span className="text-[8px] sm:text-[9px] font-bold text-blue-700 bg-blue-50 dark:bg-blue-950 px-1.5 py-0.5 rounded-full">
-                                Harga Jual - HPP
-                            </span>
-                        </div>
-                        <div className="text-base sm:text-2xl font-black text-blue-600 dark:text-blue-400 mt-0.5 truncate">
-                            {formatIDR(hppSummary.totalKeuntungan)}
-                        </div>
-                        <div className="text-[9px] text-slate-500 dark:text-slate-400 mt-1 pt-1 border-t border-blue-100 dark:border-slate-800 space-y-0.5">
-                            <div className="flex justify-between">
-                                <span>Total Harga Jual:</span>
-                                <span className="font-bold text-slate-700 dark:text-slate-300">
-                                    {formatIDR(hppSummary.totalSales)}
-                                </span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span>Total HPP Bahan:</span>
-                                <span className="font-bold text-slate-700 dark:text-slate-300">
-                                    - {formatIDR(hppSummary.totalHpp)}
-                                </span>
-                            </div>
-                        </div>
-                    </div> */}
-
-                    {/* Card 4: Keuntungan Bersih (Net Profit) */}
+                    {/* Card 3: Keuntungan Bersih (Net Profit) */}
                     <div className="rounded-2xl bg-gradient-to-r from-blue-600 to-sky-600 p-3 sm:p-4 text-white shadow-lg shadow-blue-500/20 flex flex-col justify-between">
                         <div>
                             <span className="text-[9px] sm:text-xs font-semibold uppercase tracking-wider text-blue-100 block">
@@ -355,7 +586,7 @@ export const ExpenseManagement: React.FC = () => {
                         )}
                     </div>
 
-                    {/* TAMPILAN MOBILE (KARTU INDIVIDUAL: NAMA BIAYA & KETERANGAN DIPISAH PAS 320PX) */}
+                    {/* TAMPILAN MOBILE */}
                     <div className="sm:hidden divide-y divide-blue-50 dark:divide-slate-800 p-2 space-y-2">
                         {expenses.map((exp) => (
                             <div
@@ -376,7 +607,7 @@ export const ExpenseManagement: React.FC = () => {
                                     </span>
                                 </div>
 
-                                {/* 1. NAMA BIAYA (DIPISAH TEGAS) */}
+                                {/* 1. NAMA BIAYA */}
                                 <div className="pt-0.5">
                                     <span className="text-[9px] font-bold text-slate-400 uppercase tracking-wider block">
                                         Nama Biaya:
@@ -386,7 +617,7 @@ export const ExpenseManagement: React.FC = () => {
                                     </p>
                                 </div>
 
-                                {/* 2. KETERANGAN (DIPISAH DI KOTAK SENDIRI) */}
+                                {/* 2. KETERANGAN */}
                                 {exp.notes ? (
                                     <div className="bg-white/70 dark:bg-slate-900/60 p-1.5 rounded-lg border border-blue-50 dark:border-slate-800">
                                         <span className="text-[8px] font-bold text-slate-400 uppercase tracking-wider block">
@@ -413,7 +644,7 @@ export const ExpenseManagement: React.FC = () => {
                         ))}
                     </div>
 
-                    {/* TAMPILAN TABLE DESKTOP / TABLET (KOLOM NAMA BIAYA & KETERANGAN DIPISAH) */}
+                    {/* TAMPILAN TABLE DESKTOP / TABLET */}
                     <div className="hidden sm:block overflow-x-auto">
                         <table className="w-full text-left text-sm text-slate-600 dark:text-slate-300">
                             <thead className="bg-sky-50/30 dark:bg-slate-800/40 text-[10px] uppercase text-slate-400 font-bold border-b border-blue-100 dark:border-slate-800">
@@ -462,6 +693,146 @@ export const ExpenseManagement: React.FC = () => {
                     )}
                 </div>
             </div>
+
+            {/* FITUR 2: MODAL EDIT SISA SALDO CASH / BANK QRIS */}
+            {isBalanceModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn">
+                    <div className="w-full max-w-md overflow-hidden rounded-3xl bg-white dark:bg-slate-900 shadow-2xl border border-blue-100 dark:border-slate-800 text-slate-800 dark:text-white transition-all">
+                        {/* Header Modal */}
+                        <div
+                            className={`p-4 text-white flex items-center justify-between ${
+                                editingType === "CASH"
+                                    ? "bg-gradient-to-r from-emerald-600 to-teal-600"
+                                    : "bg-gradient-to-r from-blue-600 to-indigo-600"
+                            }`}
+                        >
+                            <div className="flex items-center gap-2.5">
+                                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white/20 text-lg shadow-sm">
+                                    {editingType === "CASH" ? "💵" : "🏦"}
+                                </div>
+                                <div>
+                                    <h3 className="font-black text-sm sm:text-base leading-tight">
+                                        Edit Sisa Saldo {editingType === "CASH" ? "Toko (Cash)" : "Bank (QRIS)"}
+                                    </h3>
+                                    <p className="text-[11px] text-white/80">
+                                        Penyesuaian nominal uang fisik riil saat ini
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsBalanceModalOpen(false)}
+                                className="rounded-full bg-white/20 p-1.5 text-white hover:bg-white/30 transition cursor-pointer"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        {/* Form Body */}
+                        <form onSubmit={handleSaveBalance} className="p-4 sm:p-5 space-y-4">
+                            <div>
+                                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                                    Nominal Saldo Fisik Riil (Rp) <span className="text-rose-500">*</span>
+                                </label>
+                                <div className="relative">
+                                    <span className="absolute left-3.5 top-2.5 text-sm font-bold text-slate-400">
+                                        Rp
+                                    </span>
+                                    <input
+                                        type="number"
+                                        required
+                                        min="0"
+                                        autoFocus
+                                        placeholder="0"
+                                        value={balanceInput}
+                                        onChange={(e) => setBalanceInput(e.target.value)}
+                                        className="w-full rounded-xl border-2 border-blue-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3.5 py-2.5 pl-11 text-base font-black text-slate-900 dark:text-white placeholder:text-slate-400 focus:border-blue-500 focus:outline-none"
+                                    />
+                                </div>
+                                {balanceInput && !isNaN(Number(balanceInput)) && (
+                                    <p className="text-[11px] text-blue-600 dark:text-blue-400 font-bold mt-1">
+                                        Terbaca: {formatIDR(Number(balanceInput))}
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* Tombol Tambah Nominal Cepat */}
+                            <div>
+                                <span className="text-[10px] font-bold uppercase text-slate-400 block mb-1">
+                                    SHORTCUT NOMINAL:
+                                </span>
+                                <div className="grid grid-cols-3 gap-1.5">
+                                    {[50000, 100000, 200000, 500000, 1000000].map((amt) => (
+                                        <button
+                                            key={amt}
+                                            type="button"
+                                            onClick={() => {
+                                                const current = parseInt(balanceInput || "0", 10) || 0;
+                                                setBalanceInput(String(current + amt));
+                                            }}
+                                            className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 px-2 py-1 text-[11px] font-semibold text-slate-700 dark:text-slate-300 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-slate-700 transition cursor-pointer"
+                                        >
+                                            +{amt >= 1000000 ? `${amt / 1000000}jt` : `${amt / 1000}rb`}
+                                        </button>
+                                    ))}
+                                    <button
+                                        type="button"
+                                        onClick={() => setBalanceInput("0")}
+                                        className="rounded-lg border border-rose-200 dark:border-rose-900/60 bg-rose-50/50 dark:bg-rose-950/30 px-2 py-1 text-[11px] font-bold text-rose-600 hover:bg-rose-100 transition cursor-pointer"
+                                    >
+                                        Nolkan (0)
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-1.5">
+                                    Catatan / Alasan Penyesuaian (Opsional)
+                                </label>
+                                <textarea
+                                    rows={2}
+                                    placeholder="Contoh: Opname fisik tutup shift sore, setor ke bank, modal awal kasir..."
+                                    value={balanceNoteInput}
+                                    onChange={(e) => setBalanceNoteInput(e.target.value)}
+                                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:border-blue-500 focus:outline-none"
+                                />
+                            </div>
+
+                            {/* Tombol Aksi */}
+                            <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100 dark:border-slate-800">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsBalanceModalOpen(false)}
+                                    className="rounded-xl px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                                >
+                                    Batal
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isSavingBalance}
+                                    className={`rounded-xl px-5 py-2.5 text-xs font-bold text-white shadow-md transition active:scale-95 cursor-pointer flex items-center gap-1.5 ${
+                                        editingType === "CASH"
+                                            ? "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/30"
+                                            : "bg-blue-600 hover:bg-blue-700 shadow-blue-600/30"
+                                    }`}
+                                >
+                                    {isSavingBalance ? (
+                                        <>
+                                            <span className="animate-spin text-xs">⏳</span>
+                                            <span>Menyimpan...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span>💾</span>
+                                            <span>Simpan Sisa Saldo</span>
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
 
             {/* MODAL INPUT PENGELUARAN */}
             {isModalOpen && (

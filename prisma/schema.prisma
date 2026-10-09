@@ -29,6 +29,11 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum BalanceType {
+  CASH
+  QRIS
+}
+
 model StoreSetting {
   id               String   @id @default(cuid())
   storeName        String   @default("CAFE & RESTO BIRU")
@@ -120,4 +125,29 @@ model Expense {
   updatedAt   DateTime @updatedAt
 
   @@index([expenseDate])
+}
+
+// Model Tabel Pesanan Tersimpan (Pending / Saved Orders)
+model SavedOrder {
+  id         String   @id @default(cuid())
+  orderName  String   @map("order_name")
+  items      Json     // Array of CartItem { menuItem, quantity }
+  totalPrice Decimal  @map("total_price") @db.Decimal(12, 2)
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@map("saved_orders")
+}
+
+// Model Tabel Penyesuaian Saldo Riil Toko (Cash & Bank QRIS)
+model BalanceAdjustment {
+  id           String      @id @default(cuid())
+  type         BalanceType
+  actualAmount Decimal     @map("actual_amount") @db.Decimal(12, 2)
+  note         String?
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
+
+  @@index([type])
+  @@map("balance_adjustments")
 }

@@ -43,6 +43,41 @@ export async function GET(req: NextRequest) {
         const totalRevenue = totalCash + totalQris;
         const netProfit = totalRevenue - totalExpense; // Rumus: (Cash + QRIS) - Pengeluaran
 
+        // 3. Ambil data penyesuaian sisa saldo riil kasir & bank (opsional / graceful)
+        let balances: any = { cash: null, qris: null };
+        try {
+            const latestCash = await (prisma as any).balanceAdjustment.findFirst({
+                where: { type: "CASH" },
+                orderBy: { updatedAt: "desc" },
+            });
+            const latestQris = await (prisma as any).balanceAdjustment.findFirst({
+                where: { type: "QRIS" },
+                orderBy: { updatedAt: "desc" },
+            });
+            balances = {
+                cash: latestCash
+                    ? {
+                        id: latestCash.id,
+                        type: "CASH",
+                        actualAmount: Number(latestCash.actualAmount),
+                        note: latestCash.note || null,
+                        updatedAt: latestCash.updatedAt instanceof Date ? latestCash.updatedAt.toISOString() : latestCash.updatedAt,
+                    }
+                    : null,
+                qris: latestQris
+                    ? {
+                        id: latestQris.id,
+                        type: "QRIS",
+                        actualAmount: Number(latestQris.actualAmount),
+                        note: latestQris.note || null,
+                        updatedAt: latestQris.updatedAt instanceof Date ? latestQris.updatedAt.toISOString() : latestQris.updatedAt,
+                    }
+                    : null,
+            };
+        } catch (bErr) {
+            // Fallback jika belum di-migrate
+        }
+
         return NextResponse.json({
             success: true,
             data: {
@@ -58,6 +93,7 @@ export async function GET(req: NextRequest) {
                     totalExpense,
                     netProfit,
                 },
+                balances,
             },
         });
     } catch (error: any) {

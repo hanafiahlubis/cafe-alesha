@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState, useMemo, useRef } from "react";
+import toast from "react-hot-toast";
 import { usePOS } from "@/context/POSContext";
 import { Transaction } from "@/types/pos";
 
 export const SalesHistory: React.FC = () => {
-  const { transactions, storeInfo } = usePOS();
+  const { transactions, storeInfo, deleteTransaction, deleteBulkTransactions } = usePOS();
 
   // Helper tanggal lokal YYYY-MM-DD
   const getTodayStr = () => {
@@ -31,6 +32,11 @@ export const SalesHistory: React.FC = () => {
   // State Multi-Select & Bulk Print
   const [selectedTxIds, setSelectedTxIds] = useState<string[]>([]);
   const touchTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // State Pop-up Hapus Transaksi (Hanya untuk Laptop / Layar Lebar)
+  const [txToDelete, setTxToDelete] = useState<Transaction | null>(null);
+  const [isBulkDeleting, setIsBulkDeleting] = useState<boolean>(false);
+  const [isDeletingTx, setIsDeletingTx] = useState<boolean>(false);
 
   // Format IDR
   const formatIDR = (num: number) => {
@@ -198,114 +204,83 @@ export const SalesHistory: React.FC = () => {
         </head>
         <body>
           <div class="text-center">
-            <div class="bold" style="font-size: 13px; text-transform: uppercase;">${storeInfo.name}</div>
-            <div>${storeInfo.address || ""}</div>
-            <div>Telp: ${storeInfo.phone || ""}</div>
-            <div class="line"></div>
+            <div class="bold" style="font-size: 13px;">${storeInfo.name}</div>
+            <div>${storeInfo.address}</div>
+            <div>Telp: ${storeInfo.phone}</div>
+            <div class="double-line"></div>
+            <div class="bold" style="font-size: 12px;">REKAP GABUNGAN PESANAN</div>
+            <div style="font-size: 10px; color: #555;">${selectedList.length} Struk Pembayaran Dipilih</div>
+            <div>Tgl: ${printDate}</div>
             
             <div class="queue-box">
-              <div class="bold">NOMOR ANTREAN</div>
+              <div style="font-size: 9px; font-weight: bold;">ANTREAN TERAKHIR</div>
               <div class="queue-num">${latestQueueNumber}</div>
-              <div style="font-size: 9px;">(Antrean Terakhir • ${selectedList.length} Transaksi)</div>
-            </div>
-            
-            <div class="line"></div>
-            <div class="row" style="font-size: 10px;">
-              <span>Tanggal: ${printDate}</span>
-              <span>Kasir: Utama</span>
             </div>
             <div class="double-line"></div>
           </div>
 
-          <!-- BAGIAN 1: GRUP QRIS -->
-          ${qrisList.length > 0
-        ? `
-              <div class="group-title">--- TRANSAKSI QRIS (${qrisList.length}) ---</div>${qrisList
-          .map(
-            (tx) => `
-                <div style="margin-bottom: 5px;">
-                  <div class="row tx-header">
-                    <span>${tx.queueNumber} [${formatShortId(tx.id)}]</span>
-                    <span>${new Date(tx.timestamp).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}</span>
-                  </div>
-                  ${tx.items
-                .map(
-                  (item) => `
-                    <div style="margin-top: 2px;">
-                      <div>${item.menuItem.name}</div>
-                      <div class="row" style="font-size: 10px;">
-                        <span>  ${item.quantity} x${formatIDR(item.menuItem.price)}</span>
-                        <span>${formatIDR(item.menuItem.price * item.quantity)}</span>
-                      </div>
-                    </div>`
-                )
-                .join("")}
-                  <div class="row" style="font-size: 10px; font-weight: bold; margin-top: 1px;">
-                    <span>Subtotal:</span>
-                    <span>${formatIDR(tx.total)}</span>
-                  </div>
-                </div>`
-          )
-          .join("")}
-              <div class="row bold" style="border-top: 1px dashed #000; padding-top: 2px; margin-top: 2px;">
-                <span>TOTAL QRIS:</span>
-                <span>${formatIDR(sumQris)}</span>
+          ${qrisList.length > 0 ? `
+            <div class="group-title">-- PEMBAYARAN QRIS (${qrisList.length} TX) --</div>
+            ${qrisList.map(tx => `
+              <div class="tx-header">
+                <span>${tx.queueNumber} (${formatShortId(tx.id)})</span>
+                <span style="float: right;">${new Date(tx.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
+              ${tx.items.map(it => `
+                <div class="row">
+                  <span>${it.quantity}x ${it.menuItem.name}</span>
+                  <span class="text-right">${formatIDR(it.menuItem.price * it.quantity)}</span>
+                </div>
+              `).join('')}
+              <div class="row bold" style="margin-top: 1px;">
+                <span>Subtotal Struk:</span>
+                <span>${formatIDR(tx.total)}</span>
               </div>
               <div class="line"></div>
-            `
-        : ""
-      }
+            `).join('')}
+            <div class="row bold" style="font-size: 11px;">
+              <span>TOTAL QRIS:</span>
+              <span>${formatIDR(sumQris)}</span>
+            </div>
+            <div class="line"></div>
+          ` : ''}
 
-          <!-- BAGIAN 2: GRUP CASH -->
-          ${cashList.length > 0
-        ? `
-              <div class="group-title">--- TRANSAKSI CASH (${cashList.length}) ---</div>${cashList
-          .map(
-            (tx) => `
-                <div style="margin-bottom: 5px;">
-                  <div class="row tx-header">
-                    <span>${tx.queueNumber} [${formatShortId(tx.id)}]</span>
-                    <span>${new Date(tx.timestamp).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}</span>
-                  </div>
-                  ${tx.items
-                .map(
-                  (item) => `
-                    <div style="margin-top: 2px;">
-                      <div>${item.menuItem.name}</div>
-                      <div class="row" style="font-size: 10px;">
-                        <span>  ${item.quantity} x${formatIDR(item.menuItem.price)}</span>
-                        <span>${formatIDR(item.menuItem.price * item.quantity)}</span>
-                      </div>
-                    </div>`
-                )
-                .join("")}
-                  <div class="row" style="font-size: 10px; font-weight: bold; margin-top: 1px;">
-                    <span>Subtotal:</span>
-                    <span>${formatIDR(tx.total)}</span>
-                  </div>
-                </div>`
-          )
-          .join("")}
-              <div class="row bold" style="border-top: 1px dashed #000; padding-top: 2px; margin-top: 2px;">
-                <span>TOTAL CASH:</span>
-                <span>${formatIDR(sumCash)}</span>
+          ${cashList.length > 0 ? `
+            <div class="group-title">-- PEMBAYARAN CASH (${cashList.length} TX) --</div>
+            ${cashList.map(tx => `
+              <div class="tx-header">
+                <span>${tx.queueNumber} (${formatShortId(tx.id)})</span>
+                <span style="float: right;">${new Date(tx.timestamp).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}</span>
+              </div>
+              ${tx.items.map(it => `
+                <div class="row">
+                  <span>${it.quantity}x ${it.menuItem.name}</span>
+                  <span class="text-right">${formatIDR(it.menuItem.price * it.quantity)}</span>
+                </div>
+              `).join('')}
+              <div class="row bold" style="margin-top: 1px;">
+                <span>Subtotal Struk:</span>
+                <span>${formatIDR(tx.total)}</span>
               </div>
               <div class="line"></div>
-            `
-        : ""
-      }
+            `).join('')}
+            <div class="row bold" style="font-size: 11px;">
+              <span>TOTAL CASH:</span>
+              <span>${formatIDR(sumCash)}</span>
+            </div>
+            <div class="line"></div>
+          ` : ''}
 
-          <!-- TOTAL GABUNGAN -->
           <div class="double-line"></div>
-          <div class="row bold" style="font-size: 12px;">
+          <div class="row extra-bold" style="font-size: 13px;">
             <span>GRAND TOTAL:</span>
             <span>${formatIDR(grandTotal)}</span>
           </div>
-          <div class="line"></div>
+          <div class="double-line"></div>
 
-          <div class="text-center" style="font-size: 9px; margin-top: 6px;">
-            <div class="bold">TERIMA KASIH ATAS KUNJUNGAN ANDA</div>
-            <div>Rekap ${selectedList.length} transaksi selesai</div>
+          <div class="text-center" style="margin-top: 6px; font-size: 10px;">
+            <div>Dicetak Pada: ${new Date().toLocaleTimeString('id-ID')} WIB</div>
+            <div>-- TERIMA KASIH --</div>
           </div>
         </body>
       </html>
@@ -315,68 +290,133 @@ export const SalesHistory: React.FC = () => {
     setTimeout(() => {
       iframe.contentWindow?.focus();
       iframe.contentWindow?.print();
-      setTimeout(() => document.body.removeChild(iframe), 2000);
-    }, 250);
+      setTimeout(() => {
+        document.body.removeChild(iframe);
+      }, 1000);
+    }, 300);
   };
 
+  // HANDLER HAPUS 1 TRANSAKSI (LAPTOP ONLY)
+  const handleConfirmDeleteSingle = async () => {
+    if (!txToDelete) return;
+
+    setIsDeletingTx(true);
+    const shortName = formatShortId(txToDelete.id);
+    try {
+      const success = await deleteTransaction(txToDelete.id);
+      if (success) {
+        setSelectedTxIds((prev) => prev.filter((id) => id !== txToDelete.id));
+        toast.success(`Transaksi ${shortName} berhasil dihapus dari riwayat!`);
+        setTxToDelete(null);
+      } else {
+        toast.error("Gagal menghapus transaksi dari database.");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Gagal menghapus transaksi");
+    } finally {
+      setIsDeletingTx(false);
+    }
+  };
+
+  // HANDLER HAPUS BANYAK TRANSAKSI (BULK DELETE LAPTOP ONLY)
+  const handleConfirmDeleteBulk = async () => {
+    if (selectedTxIds.length === 0) return;
+
+    setIsDeletingTx(true);
+    const count = selectedTxIds.length;
+    try {
+      const success = await deleteBulkTransactions(selectedTxIds);
+      if (success) {
+        setSelectedTxIds([]);
+        toast.success(`${count} transaksi berhasil dihapus dari riwayat!`);
+        setIsBulkDeleting(false);
+      } else {
+        toast.error("Gagal menghapus transaksi yang dipilih.");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Gagal menghapus transaksi");
+    } finally {
+      setIsDeletingTx(false);
+    }
+  };
+
+  const selectedTotal = useMemo(() => {
+    return transactions
+      .filter((t) => selectedTxIds.includes(t.id))
+      .reduce((sum, t) => sum + t.total, 0);
+  }, [transactions, selectedTxIds]);
+
   return (
-    <div className="min-h-screen bg-[#F0F7FF] dark:bg-slate-950 pt-2 sm:pt-20 pb-2 lg:pb-16 text-slate-900 dark:text-slate-50 transition-colors duration-200">
-      <div className="mx-auto max-w-7xl px-2 sm:px-4 lg:px-8 space-y-2.5 sm:space-y-4">
-        {/* HEADER & DATE RANGE FILTER */}
-        <div className="rounded-2xl bg-white dark:bg-slate-900 p-2.5 sm:p-4 shadow-sm border border-blue-100 dark:border-slate-800">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5 sm:gap-2">
-                <span className="text-lg sm:text-2xl">📊</span>
-                <h1 className="text-xs sm:text-lg font-black text-slate-900 dark:text-white truncate">
-                  Riwayat &amp; Rekap Keuangan (NeonDB)
+    <div className="min-h-screen bg-[#F0F7FF] dark:bg-slate-950 pt-16 sm:pt-20 pb-24 text-slate-900 dark:text-slate-50 transition-colors duration-200">
+      <div className="mx-auto max-w-7xl px-2.5 sm:px-6 lg:px-8 space-y-3 sm:space-y-4">
+        {/* HEADER & FILTER */}
+        <div className="rounded-2xl bg-white dark:bg-slate-900 p-3 sm:p-4 shadow-sm border border-blue-100 dark:border-slate-800 space-y-2.5 sm:space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-xl sm:text-2xl">📊</span>
+                <h1 className="text-sm sm:text-lg font-black text-slate-900 dark:text-white leading-tight">
+                  Rekap &amp; Riwayat Penjualan
                 </h1>
               </div>
-              <p className="text-[10px] text-slate-400 hidden sm:block mt-0.5">
-                Rekap pemasukan Cash vs QRIS BCA
+              <p className="text-[10px] sm:text-xs text-slate-400 mt-0.5">
+                Pantau omzet kasir, cetak struk gabungan, dan rekap pembayaran.
               </p>
             </div>
-            <div className="flex items-center gap-1 shrink-0">
+
+            {/* PRESET FILTER CEPAT */}
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase mr-1">
+                FILTER:
+              </span>
               <button
                 type="button"
                 onClick={handleSelectToday}
-                className="rounded-lg sm:rounded-xl border border-blue-200 bg-blue-50/80 px-2 py-1 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-bold text-blue-700 hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300 transition cursor-pointer active:scale-95"
+                className="rounded-xl border border-blue-200 bg-blue-50/80 px-2.5 py-1 sm:px-3 sm:py-1.5 text-xs font-bold text-blue-700 hover:bg-blue-100 transition cursor-pointer"
               >
                 Hari Ini
               </button>
               <button
                 type="button"
                 onClick={handleSelectThisMonth}
-                className="rounded-lg sm:rounded-xl border border-blue-200 bg-blue-50/80 px-2 py-1 sm:px-3 sm:py-1.5 text-[10px] sm:text-xs font-bold text-blue-700 hover:bg-blue-100 dark:border-blue-900 dark:bg-blue-950 dark:text-blue-300 transition cursor-pointer active:scale-95"
+                className="rounded-xl border border-blue-200 bg-blue-50/80 px-2.5 py-1 sm:px-3 sm:py-1.5 text-xs font-bold text-blue-700 hover:bg-blue-100 transition cursor-pointer"
               >
                 Bulan Ini
               </button>
             </div>
           </div>
 
-          <div className="mt-2.5 pt-2.5 border-t border-blue-50 dark:border-slate-800">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-4">
-              <div>
-                <label className="block text-[9px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">
-                  📅 Dari Tanggal
-                </label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="w-full rounded-xl border border-blue-200/80 dark:border-slate-700 bg-sky-50/40 dark:bg-slate-800 px-2.5 py-1.5 text-xs font-semibold text-slate-900 dark:text-white focus:border-blue-500 focus:outline-none cursor-pointer"
-                />
+          {/* DATE RANGE PICKER RESPONSIF (2 KOLOM DI MOBILE, TIDAK AKAN WRAP BERANTAKAN) */}
+          <div className="pt-2 border-t border-blue-50 dark:border-slate-800">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:gap-2.5">
+              <div className="w-full sm:w-auto">
+                <span className="block sm:hidden text-[9px] font-bold text-slate-400 uppercase mb-0.5">
+                  Dari Tanggal
+                </span>
+                <div className="flex items-center gap-1.5 rounded-xl border border-blue-200 dark:border-slate-700 bg-sky-50/40 dark:bg-slate-800 px-2.5 py-1.5 text-xs">
+                  <span className="hidden sm:inline text-slate-400 font-semibold text-[11px]">Dari:</span>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full bg-transparent font-bold text-slate-800 dark:text-white focus:outline-none cursor-pointer text-xs"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-[9px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">
-                  📅 Sampai Tanggal
-                </label>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full rounded-xl border border-blue-200/80 dark:border-slate-700 bg-sky-50/40 dark:bg-slate-800 px-2.5 py-1.5 text-xs font-semibold text-slate-900 dark:text-white focus:border-blue-500 focus:outline-none cursor-pointer"
-                />
+
+              <div className="w-full sm:w-auto">
+                <span className="block sm:hidden text-[9px] font-bold text-slate-400 uppercase mb-0.5">
+                  Sampai Tanggal
+                </span>
+                <div className="flex items-center gap-1.5 rounded-xl border border-blue-200 dark:border-slate-700 bg-sky-50/40 dark:bg-slate-800 px-2.5 py-1.5 text-xs">
+                  <span className="hidden sm:inline text-slate-400 font-semibold text-[11px]">s/d:</span>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full bg-transparent font-bold text-slate-800 dark:text-white focus:outline-none cursor-pointer text-xs"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -387,67 +427,79 @@ export const SalesHistory: React.FC = () => {
           <span>📅</span> {reportTitleLabel}
         </div>
 
-        {/* 4 KARTU RINGKASAN */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3.5">
-          <div className="rounded-2xl bg-gradient-to-br from-blue-600 to-sky-600 p-3 sm:p-4 text-white shadow-md shadow-blue-500/20 col-span-2 sm:col-span-1">
-            <span className="text-[9px] sm:text-xs font-medium text-blue-100 uppercase tracking-wider block">
-              TOTAL PEMASUKAN
-            </span>
-            <div className="text-lg sm:text-2xl font-black mt-0.5 tracking-tight truncate">
-              {formatIDR(totalRevenue)}
+        {/* 4 KARTU RINGKASAN: RAPI 2x2 SIMETRIS DI MOBILE, 4 KOLOM DI LAPTOP (TANPA LUBANG KOSONG) */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+          {/* Card 1: TOTAL PEMASUKAN */}
+          <div className="rounded-2xl bg-gradient-to-br from-blue-600 to-sky-600 p-3 sm:p-4 text-white shadow-md shadow-blue-500/20 flex flex-col justify-between">
+            <div>
+              <span className="text-[9px] sm:text-xs font-medium text-blue-100 uppercase tracking-wider block">
+                TOTAL PEMASUKAN
+              </span>
+              <div className="text-base sm:text-xl lg:text-2xl font-black mt-0.5 tracking-tight truncate">
+                {formatIDR(totalRevenue)}
+              </div>
             </div>
-            <p className="text-[9px] sm:text-[11px] text-blue-100">Semua metode bayar</p>
+            <p className="text-[9px] sm:text-[10px] text-blue-100 mt-1">Semua metode bayar</p>
           </div>
 
-          <div className="rounded-2xl bg-white dark:bg-slate-900 p-3 sm:p-4 border border-blue-100 dark:border-slate-800 shadow-sm">
-            <span className="text-[9px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider block truncate">
-              TOTAL TRANSAKSI
-            </span>
-            <div className="text-base sm:text-2xl font-black text-slate-900 dark:text-white mt-0.5">
-              {totalTransactions} <span className="text-[10px] sm:text-xs font-medium text-slate-400">struk</span>
+          {/* Card 2: TOTAL TRANSAKSI */}
+          <div className="rounded-2xl bg-white dark:bg-slate-900 p-3 sm:p-4 border border-blue-100 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+            <div>
+              <span className="text-[9px] sm:text-xs font-semibold text-slate-500 uppercase tracking-wider block truncate">
+                TOTAL TRANSAKSI
+              </span>
+              <div className="text-base sm:text-xl lg:text-2xl font-black text-slate-900 dark:text-white mt-0.5">
+                {totalTransactions} <span className="text-[10px] sm:text-xs font-medium text-slate-400">struk</span>
+              </div>
             </div>
-            <p className="text-[9px] text-slate-400">Pelanggan dilayani</p>
+            <p className="text-[9px] sm:text-[10px] text-slate-400 mt-1">Pelanggan dilayani</p>
           </div>
 
-          <div className="rounded-2xl bg-white dark:bg-slate-900 p-3 sm:p-4 border border-emerald-200 dark:border-emerald-900/60 shadow-sm">
-            <div className="flex items-center justify-between gap-1">
-              <span className="text-[9px] sm:text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider truncate">
-                💵 CASH
-              </span>
-              <span className="text-[8px] sm:text-[9px] font-bold text-emerald-700 bg-emerald-50 dark:bg-emerald-950 px-1.5 py-0.2 rounded-full">
-                {countCash} tx
-              </span>
+          {/* Card 3: CASH */}
+          <div className="rounded-2xl bg-white dark:bg-slate-900 p-3 sm:p-4 border border-emerald-200 dark:border-emerald-900/60 shadow-sm flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[9px] sm:text-xs font-semibold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider truncate">
+                  💵 CASH
+                </span>
+                <span className="text-[8px] sm:text-[9px] font-bold text-emerald-700 bg-emerald-50 dark:bg-emerald-950 px-1.5 py-0.2 rounded-full">
+                  {countCash} tx
+                </span>
+              </div>
+              <div className="text-base sm:text-xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5 truncate">
+                {formatIDR(totalCash)}
+              </div>
             </div>
-            <div className="text-sm sm:text-xl font-black text-emerald-600 dark:text-emerald-400 mt-0.5 truncate">
-              {formatIDR(totalCash)}
-            </div>
-            <p className="text-[9px] text-slate-400">{cashPercentage}% total</p>
+            <p className="text-[9px] sm:text-[10px] text-slate-400 mt-1">{cashPercentage}% dari total</p>
           </div>
 
-          <div className="rounded-2xl bg-white dark:bg-slate-900 p-3 sm:p-4 border border-sky-200 dark:border-blue-900/60 shadow-sm">
-            <div className="flex items-center justify-between gap-1">
-              <span className="text-[9px] sm:text-xs font-semibold text-sky-600 dark:text-blue-400 uppercase tracking-wider truncate">
-                📱 QRIS
-              </span>
-              <span className="text-[8px] sm:text-[9px] font-bold text-blue-700 bg-blue-50 dark:bg-blue-950 px-1.5 py-0.2 rounded-full">
-                {countQris} tx
-              </span>
+          {/* Card 4: QRIS */}
+          <div className="rounded-2xl bg-white dark:bg-slate-900 p-3 sm:p-4 border border-sky-200 dark:border-blue-900/60 shadow-sm flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-[9px] sm:text-xs font-semibold text-sky-600 dark:text-blue-400 uppercase tracking-wider truncate">
+                  📱 QRIS
+                </span>
+                <span className="text-[8px] sm:text-[9px] font-bold text-blue-700 bg-blue-50 dark:bg-blue-950 px-1.5 py-0.2 rounded-full">
+                  {countQris} tx
+                </span>
+              </div>
+              <div className="text-base sm:text-xl font-black text-sky-600 dark:text-blue-400 mt-0.5 truncate">
+                {formatIDR(totalQris)}
+              </div>
             </div>
-            <div className="text-sm sm:text-xl font-black text-sky-600 dark:text-blue-400 mt-0.5 truncate">
-              {formatIDR(totalQris)}
-            </div>
-            <p className="text-[9px] text-slate-400">{qrisPercentage}% total</p>
+            <p className="text-[9px] sm:text-[10px] text-slate-400 mt-1">{qrisPercentage}% dari total</p>
           </div>
         </div>
 
-        {/* PROGRESS BAR */}
-        <div className="rounded-2xl bg-white dark:bg-slate-900 p-3 sm:p-4 border border-blue-100 dark:border-slate-800 shadow-sm">
-          <div className="flex items-center justify-between text-[10px] sm:text-xs font-bold mb-1.5">
-            <span className="text-emerald-700 dark:text-emerald-400 truncate">
-              Cash: {formatIDR(totalCash)} ({cashPercentage}%)
+        {/* PROGRESS BAR RATIO CASH vs QRIS */}
+        <div className="rounded-2xl bg-white dark:bg-slate-900 p-3 sm:p-3.5 border border-blue-100 dark:border-slate-800 shadow-sm space-y-1.5">
+          <div className="flex items-center justify-between text-[10px] sm:text-xs font-bold">
+            <span className="text-emerald-700 dark:text-emerald-400 truncate flex items-center gap-1">
+              <span>💵 Cash:</span> <span>{formatIDR(totalCash)}</span> <span className="text-slate-400 font-normal">({cashPercentage}%)</span>
             </span>
-            <span className="text-blue-700 dark:text-blue-400 truncate">
-              QRIS: {formatIDR(totalQris)} ({qrisPercentage}%)
+            <span className="text-blue-700 dark:text-blue-400 truncate flex items-center gap-1">
+              <span>📱 QRIS:</span> <span>{formatIDR(totalQris)}</span> <span className="text-slate-400 font-normal">({qrisPercentage}%)</span>
             </span>
           </div>
           <div className="h-2 sm:h-2.5 w-full rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden flex">
@@ -464,7 +516,7 @@ export const SalesHistory: React.FC = () => {
 
         {/* FLOATING ACTION BAR SAAT TRANSAKSI DIPILIH */}
         {selectedTxIds.length > 0 && (
-          <div className="sticky top-16 sm:top-20 z-30 flex items-center justify-between gap-3 rounded-2xl bg-blue-600 px-3 sm:px-5 py-2.5 sm:py-3 text-white shadow-xl shadow-blue-600/30 animate-fadeIn border border-blue-500/30">
+          <div className="sticky top-16 sm:top-20 z-30 flex items-center justify-between gap-2.5 rounded-2xl bg-blue-600 px-3 sm:px-5 py-2.5 sm:py-3 text-white shadow-xl shadow-blue-600/30 animate-fadeIn border border-blue-500/30">
             <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
               <span className="flex h-7 w-7 items-center justify-center rounded-xl bg-white text-xs sm:text-sm font-black text-blue-600 shadow-sm">
                 {selectedTxIds.length}
@@ -477,10 +529,22 @@ export const SalesHistory: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setSelectedTxIds([])}
-                className="rounded-xl bg-blue-700/60 hover:bg-blue-700 border border-blue-400/30 px-3 py-1.5 sm:py-2 text-xs font-bold text-white transition active:scale-95 cursor-pointer whitespace-nowrap"
+                className="rounded-xl bg-blue-700/60 hover:bg-blue-700 border border-blue-400/30 px-2.5 py-1.5 sm:px-3 sm:py-2 text-xs font-bold text-white transition active:scale-95 cursor-pointer whitespace-nowrap"
               >
                 Batal
               </button>
+
+              {/* FITUR HAPUS TERPILIH (KHUSUS LAPTOP / DESKTOP) */}
+              <button
+                type="button"
+                onClick={() => setIsBulkDeleting(true)}
+                className="hidden sm:inline-flex items-center gap-1 rounded-xl bg-rose-600 hover:bg-rose-700 border border-rose-400 px-3 py-1.5 sm:py-2 text-xs font-bold text-white shadow-md transition active:scale-95 cursor-pointer whitespace-nowrap"
+                title="Hapus transaksi terpilih (Khusus Laptop)"
+              >
+                <span>🗑️</span>
+                <span>Hapus ({selectedTxIds.length})</span>
+              </button>
+
               <button
                 type="button"
                 onClick={handleBulkPrint}
@@ -493,9 +557,9 @@ export const SalesHistory: React.FC = () => {
           </div>
         )}
 
-        {/* TABEL DAFTAR TRANSAKSI DENGAN NOMOR PENDEK & CHECKBOX */}
+        {/* TABEL DAFTAR TRANSAKSI */}
         <div className="overflow-hidden rounded-2xl bg-white dark:bg-slate-900 shadow-sm border border-blue-100 dark:border-slate-800">
-          <div className="p-2.5 sm:p-4 bg-sky-50/50 dark:bg-slate-800/50 border-b border-blue-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
+          <div className="p-2.5 sm:p-3.5 bg-sky-50/50 dark:bg-slate-800/50 border-b border-blue-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <input
                 type="checkbox"
@@ -515,8 +579,8 @@ export const SalesHistory: React.FC = () => {
                   type="button"
                   onClick={() => setMethodFilter(m)}
                   className={`rounded-lg px-2.5 py-1 text-[10px] sm:text-xs font-bold transition cursor-pointer ${methodFilter === m
-                    ? "bg-blue-600 text-white shadow-sm"
-                    : "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-blue-100 dark:border-transparent hover:bg-blue-50"
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-blue-100 dark:border-transparent hover:bg-blue-50"
                     }`}
                 >
                   {m}
@@ -525,8 +589,8 @@ export const SalesHistory: React.FC = () => {
             </div>
           </div>
 
-          {/* TAMPILAN MOBILE (KARTU) */}
-          <div className="sm:hidden divide-y divide-blue-50 dark:divide-slate-800 p-1.5 space-y-1.5">
+          {/* TAMPILAN MOBILE (KARTU - BERSIH TANPA TOMBOL HAPUS, SESUAI REQUEST KHUSUS LAPTOP) */}
+          <div className="sm:hidden divide-y divide-blue-50 dark:divide-slate-800 p-2 space-y-2">
             {filteredTx.map((tx) => {
               const isSelected = selectedTxIds.includes(tx.id);
               return (
@@ -535,9 +599,9 @@ export const SalesHistory: React.FC = () => {
                   onTouchStart={() => handleTouchStart(tx.id)}
                   onTouchEnd={handleTouchEnd}
                   onClick={() => selectedTxIds.length > 0 && toggleSelectTx(tx.id)}
-                  className={`p-2.5 rounded-xl space-y-1.5 border transition cursor-pointer select-none ${isSelected
-                    ? "bg-blue-50/90 dark:bg-blue-950/70 border-blue-300 dark:border-blue-700"
-                    : "bg-sky-50/30 dark:bg-slate-800/40 border-blue-100/60 dark:border-slate-800"
+                  className={`p-2.5 sm:p-3 rounded-xl space-y-2 border transition cursor-pointer select-none ${isSelected
+                      ? "bg-blue-50/90 dark:bg-blue-950/70 border-blue-300 dark:border-blue-700 shadow-sm"
+                      : "bg-sky-50/30 dark:bg-slate-800/40 border-blue-100/60 dark:border-slate-800 hover:border-blue-200"
                     }`}
                 >
                   <div className="flex items-center justify-between gap-1">
@@ -553,51 +617,55 @@ export const SalesHistory: React.FC = () => {
                         {tx.queueNumber}
                       </span>
                       <div className="min-w-0">
-                        <span className="font-mono text-[10px] text-slate-600 dark:text-slate-400 font-bold block truncate">
+                        <span className="font-mono text-[10px] text-slate-700 dark:text-slate-300 font-bold block truncate">
                           {formatShortId(tx.id)}
                         </span>
                         <span className="text-[9px] text-slate-400 block">{tx.date}</span>
                       </div>
                     </div>
                     <span
-                      className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold ${tx.paymentMethod === "Cash"
-                        ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                        : "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300"
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold ${tx.paymentMethod === "Cash"
+                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                          : "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300"
                         }`}
                     >
                       {tx.paymentMethod === "Cash" ? "💵 Cash" : "📱 QRIS"}
                     </span>
                   </div>
-                  <div className="text-[11px] space-y-0.5 text-slate-700 dark:text-slate-300 bg-white/60 dark:bg-slate-900/60 p-1.5 rounded-lg">
+
+                  <div className="text-[11px] space-y-0.5 text-slate-700 dark:text-slate-300 bg-white/70 dark:bg-slate-900/60 p-2 rounded-xl border border-blue-50 dark:border-slate-800">
                     {tx.items.map((i, idx) => (
                       <div key={idx} className="flex justify-between gap-1">
                         <span className="truncate">
-                          {i.quantity}x {i.menuItem.name}
+                          <strong className="text-blue-600 dark:text-blue-400 font-semibold">{i.quantity}x</strong> {i.menuItem.name}
                         </span>
-                        <span className="text-slate-400 shrink-0">
+                        <span className="text-slate-500 font-medium shrink-0">
                           {formatIDR(i.menuItem.price * i.quantity)}
                         </span>
                       </div>
                     ))}
                   </div>
-                  <div className="flex items-center justify-between pt-1 border-t border-blue-100 dark:border-slate-700 text-[10px]">
+
+                  <div className="flex items-center justify-between pt-1 border-t border-blue-100 dark:border-slate-800 text-[10px]">
                     <span className="text-slate-400">
-                      {new Date(tx.timestamp).toLocaleTimeString("id-ID", {
+                      🕒 {new Date(tx.timestamp).toLocaleTimeString("id-ID", {
                         hour: "2-digit",
                         minute: "2-digit",
-                      })}{" "}
-                      WIB
+                      })} WIB
                     </span>
-                    <span className="text-xs font-black text-blue-600 dark:text-blue-400">
-                      {formatIDR(tx.total)}
-                    </span>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-[9px] text-slate-400 uppercase font-semibold">Total:</span>
+                      <span className="text-xs font-black text-blue-600 dark:text-blue-400">
+                        {formatIDR(tx.total)}
+                      </span>
+                    </div>
                   </div>
                 </div>
               );
             })}
           </div>
 
-          {/* TAMPILAN TABLE DESKTOP / TABLET */}
+          {/* TAMPILAN TABLE DESKTOP / LAPTOP (DILENGKAPI KOLOM AKSI HAPUS) */}
           <div className="hidden sm:block overflow-x-auto">
             <table className="w-full text-left text-sm text-slate-600 dark:text-slate-300">
               <thead className="bg-sky-50/40 dark:bg-slate-800/20 text-xs uppercase text-slate-400 font-semibold border-b border-blue-100 dark:border-slate-800">
@@ -616,6 +684,8 @@ export const SalesHistory: React.FC = () => {
                   <th className="px-6 py-3.5">RINCIAN ITEM</th>
                   <th className="px-4 py-3.5">METODE</th>
                   <th className="px-6 py-3.5 text-right">TOTAL</th>
+                  {/* FITUR: Kolom Aksi Khusus Laptop */}
+                  <th className="px-4 py-3.5 text-center w-24">AKSI</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-blue-50 dark:divide-slate-800">
@@ -626,8 +696,8 @@ export const SalesHistory: React.FC = () => {
                       key={tx.id}
                       onClick={() => toggleSelectTx(tx.id)}
                       className={`transition cursor-pointer ${isSelected
-                        ? "bg-blue-50/70 dark:bg-blue-950/50"
-                        : "hover:bg-blue-50/30 dark:hover:bg-slate-800/40"
+                          ? "bg-blue-50/70 dark:bg-blue-950/50"
+                          : "hover:bg-blue-50/30 dark:hover:bg-slate-800/40"
                         }`}
                     >
                       <td className="pl-4 pr-1 py-4" onClick={(e) => e.stopPropagation()}>
@@ -668,8 +738,8 @@ export const SalesHistory: React.FC = () => {
                       <td className="px-4 py-4">
                         <span
                           className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${tx.paymentMethod === "Cash"
-                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300"
-                            : "bg-blue-100 text-blue-800 dark:bg-blue-950/70 dark:text-blue-300"
+                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300"
+                              : "bg-blue-100 text-blue-800 dark:bg-blue-950/70 dark:text-blue-300"
                             }`}
                         >
                           {tx.paymentMethod === "Cash" ? "💵 Cash" : "📱 QRIS"}
@@ -677,6 +747,21 @@ export const SalesHistory: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 text-right font-black text-slate-900 dark:text-white">
                         {formatIDR(tx.total)}
+                      </td>
+
+                      {/* Tombol Hapus 1 Transaksi di Laptop */}
+                      <td className="px-4 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={() => setTxToDelete(tx)}
+                          className="inline-flex items-center gap-1 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/70 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 px-2.5 py-1 text-xs font-bold transition active:scale-95 cursor-pointer shadow-sm"
+                          title="Hapus Transaksi Ini"
+                        >
+                          <svg className="w-3.5 h-3.5 fill-none stroke-current" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          <span>Hapus</span>
+                        </button>
                       </td>
                     </tr>
                   );
@@ -692,6 +777,137 @@ export const SalesHistory: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* MODAL POP-UP KONFIRMASI HAPUS 1 TRANSAKSI */}
+      {txToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-2xl border border-rose-200 dark:border-rose-900/60 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-100 dark:bg-rose-950/80 text-rose-600 text-2xl shadow-inner">
+                🗑️
+              </div>
+              <div>
+                <h4 className="font-black text-base text-slate-900 dark:text-white leading-tight">
+                  Hapus Transaksi Penjualan?
+                </h4>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Transaksi akan dihapus permanen dari riwayat database.
+                </p>
+              </div>
+            </div>
+
+            {/* Info Rincian Transaksi */}
+            <div className="rounded-2xl bg-slate-50 dark:bg-slate-800/60 p-3.5 border border-slate-100 dark:border-slate-800 space-y-2 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-medium">Nomor Transaksi:</span>
+                <span className="font-mono font-bold text-slate-900 dark:text-white">
+                  {formatShortId(txToDelete.id)}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-medium">Nomor Antrean:</span>
+                <span className="font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950 px-2 py-0.5 rounded-lg">
+                  {txToDelete.queueNumber}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-medium">Metode Pembayaran:</span>
+                <span className="font-bold text-slate-800 dark:text-slate-200">
+                  {txToDelete.paymentMethod === "Cash" ? "💵 Cash" : "📱 QRIS"}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-500 font-medium">Tanggal &amp; Waktu:</span>
+                <span className="text-slate-600 dark:text-slate-300">
+                  {txToDelete.date} • {new Date(txToDelete.timestamp).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })} WIB
+                </span>
+              </div>
+              <div className="flex justify-between items-center border-t border-slate-200/80 dark:border-slate-700 pt-1.5">
+                <span className="text-slate-700 dark:text-slate-300 font-bold">Total Pembayaran:</span>
+                <span className="text-sm font-black text-rose-600 dark:text-rose-400">
+                  {formatIDR(txToDelete.total)}
+                </span>
+              </div>
+            </div>
+
+            <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-xl border border-amber-200 dark:border-amber-900">
+              ⚠️ Peringatan: Menghapus transaksi ini akan otomatis mengurangi kalkulasi total omzet dan laporan keuangan toko.
+            </p>
+
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
+                type="button"
+                disabled={isDeletingTx}
+                onClick={() => setTxToDelete(null)}
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingTx}
+                onClick={handleConfirmDeleteSingle}
+                className="w-full rounded-xl bg-rose-600 hover:bg-rose-700 py-2.5 text-xs font-bold text-white shadow-md shadow-rose-600/30 transition active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                {isDeletingTx ? "Menghapus..." : "Ya, Hapus Transaksi"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL POP-UP KONFIRMASI HAPUS BANYAK TRANSAKSI (BULK DELETE) */}
+      {isBulkDeleting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-2xl border border-rose-200 dark:border-rose-900/60 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-100 dark:bg-rose-950/80 text-rose-600 text-2xl shadow-inner">
+                ⚠️
+              </div>
+              <div>
+                <h4 className="font-black text-base text-slate-900 dark:text-white leading-tight">
+                  Hapus {selectedTxIds.length} Transaksi Terpilih?
+                </h4>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Seluruh struk transaksi terpilih akan dihapus permanen.
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-2xl bg-rose-50 dark:bg-rose-950/30 p-3.5 border border-rose-200 dark:border-rose-900/60 space-y-1 text-xs">
+              <div className="flex justify-between items-center text-slate-600 dark:text-slate-300">
+                <span>Jumlah Struk:</span>
+                <span className="font-black text-slate-900 dark:text-white">{selectedTxIds.length} transaksi</span>
+              </div>
+              <div className="flex justify-between items-center text-slate-600 dark:text-slate-300">
+                <span>Total Omzet Terhapus:</span>
+                <span className="font-black text-rose-600 dark:text-rose-400 text-sm">
+                  {formatIDR(selectedTotal)}
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
+                type="button"
+                disabled={isDeletingTx}
+                onClick={() => setIsBulkDeleting(false)}
+                className="w-full rounded-xl border border-slate-200 dark:border-slate-700 py-2.5 text-xs font-bold text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingTx}
+                onClick={handleConfirmDeleteBulk}
+                className="w-full rounded-xl bg-rose-600 hover:bg-rose-700 py-2.5 text-xs font-bold text-white shadow-md shadow-rose-600/30 transition active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                {isDeletingTx ? "Menghapus..." : `Ya, Hapus (${selectedTxIds.length})`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
