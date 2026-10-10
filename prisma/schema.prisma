@@ -115,16 +115,37 @@ model Queue {
 
 // Model Tabel Pengeluaran Toko
 model Expense {
-  id          String   @id @default(cuid())
-  title       String
-  amount      Decimal  @db.Decimal(12, 2)
-  category    String   @default("Operasional") // Bahan Baku, Operasional, Gaji, dll.
-  notes       String?
-  expenseDate DateTime @default(now())
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String   @id @default(cuid())
+  title         String
+  amount        Decimal  @db.Decimal(12, 2)
+  category      String   @default("Operasional") // Bahan Baku, Operasional, Gaji, dll.
+  paymentMethod String?  @default("CASH") @map("payment_method") // CASH, QRIS, SPLIT
+  cashAmount    Decimal? @default(0) @map("cash_amount") @db.Decimal(12, 2)
+  qrisAmount    Decimal? @default(0) @map("qris_amount") @db.Decimal(12, 2)
+  notes         String?
+  expenseDate   DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   @@index([expenseDate])
+}
+
+// Model Tabel Riwayat Pengeluaran Dihapus (Audit Log)
+model DeletedExpense {
+  id            String   @id @default(cuid())
+  expenseId     String?  @map("expense_id")
+  title         String
+  amount        Decimal  @db.Decimal(12, 2)
+  category      String   @default("Operasional")
+  paymentMethod String   @default("CASH") @map("payment_method")
+  cashAmount    Decimal? @default(0) @map("cash_amount") @db.Decimal(12, 2)
+  qrisAmount    Decimal? @default(0) @map("qris_amount") @db.Decimal(12, 2)
+  notes         String?
+  expenseDate   DateTime @map("expense_date")
+  deletedAt     DateTime @default(now()) @map("deleted_at")
+
+  @@index([deletedAt])
+  @@map("history_pengeluaran_dihapus")
 }
 
 // Model Tabel Pesanan Tersimpan (Pending / Saved Orders)
@@ -141,12 +162,13 @@ model SavedOrder {
 
 // Model Tabel Penyesuaian Saldo Riil Toko (Cash & Bank QRIS)
 model BalanceAdjustment {
-  id           String      @id @default(cuid())
-  type         BalanceType
-  actualAmount Decimal     @map("actual_amount") @db.Decimal(12, 2)
-  note         String?
-  createdAt    DateTime    @default(now()) @map("created_at")
-  updatedAt    DateTime    @updatedAt @map("updated_at")
+  id            String      @id @default(cuid())
+  type          BalanceType
+  actualAmount  Decimal     @map("actual_amount") @db.Decimal(12, 2)
+  initialAmount Decimal?    @default(0) @map("initial_amount") @db.Decimal(12, 2)
+  note          String?
+  createdAt     DateTime    @default(now()) @map("created_at")
+  updatedAt     DateTime    @updatedAt @map("updated_at")
 
   @@index([type])
   @@map("balance_adjustments")

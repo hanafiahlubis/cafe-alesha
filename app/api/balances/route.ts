@@ -1,54 +1,76 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/db";
 
+// Helper untuk mengekstrak initialAmount jika tersimpan di catatan legacy
+function parseInitialFromNote(note?: string | null): { initialAmount: number; cleanNote: string | null } {
+  if (!note) return { initialAmount: 0, cleanNote: null };
+  const match = note.match(/\[INITIAL:([0-9.]+)\]/);
+  if (match) {
+    const amt = parseFloat(match[1]) || 0;
+    const clean = note.replace(/\[INITIAL:[0-9.]+\]\s*/, "").trim();
+    return { initialAmount: amt, cleanNote: clean || null };
+  }
+  return { initialAmount: 0, cleanNote: note };
+}
+
 export async function GET() {
   try {
-    const latestCash = await (prisma as any).balanceAdjustment.findFirst({
-      where: { type: "CASH" },
-      orderBy: { updatedAt: "desc" },
-    });
+    let latestCash: any = null;
+    let latestQris: any = null;
+    let recentHistory: any[] = [];
 
-    const latestQris = await (prisma as any).balanceAdjustment.findFirst({
-      where: { type: "QRIS" },
-      orderBy: { updatedAt: "desc" },
-    });
+    try {
+      latestCash = await (prisma as any).balanceAdjustment.findFirst({
+        where: { type: "CASH" },
+        orderBy: { updatedAt: "desc" },
+      });
 
-    const recentHistory = await (prisma as any).balanceAdjustment.findMany({
-      take: 10,
-      orderBy: { updatedAt: "desc" },
-    });
+      latestQris = await (prisma as any).balanceAdjustment.findFirst({
+        where: { type: "QRIS" },
+        orderBy: { updatedAt: "desc" },
+      });
+
+      recentHistory = await (prisma as any).balanceAdjustment.findMany({
+        take: 10,
+        orderBy: { updatedAt: "desc" },
+      });
+    } catch (dbErr: any) {
+      console.warn("balanceAdjustment query warning:", dbErr.message);
+    }
+
+    const formatBalance = (item: any, type: "CASH" | "QRIS") => {
+      if (!item) return null;
+      const parsed = parseInitialFromNote(item.note);
+      const initial = item.initialAmount != null ? Number(item.initialAmount) : parsed.initialAmount;
+      return {
+        id: item.id,
+        type,
+        actualAmount: Number(item.actualAmount ?? 0),
+        initialAmount: initial,
+        note: parsed.cleanNote,
+        createdAt: item.createdAt instanceof Date ? item.createdAt.toISOString() : item.createdAt,
+        updatedAt: item.updatedAt instanceof Date ? item.updatedAt.toISOString() : item.updatedAt,
+      };
+    };
 
     return NextResponse.json({
       success: true,
       data: {
-        cash: latestCash
-          ? {
-              id: latestCash.id,
-              type: "CASH",
-              actualAmount: Number(latestCash.actualAmount),
-              note: latestCash.note || null,
-              createdAt: latestCash.createdAt instanceof Date ? latestCash.createdAt.toISOString() : latestCash.createdAt,
-              updatedAt: latestCash.updatedAt instanceof Date ? latestCash.updatedAt.toISOString() : latestCash.updatedAt,
-            }
-          : null,
-        qris: latestQris
-          ? {
-              id: latestQris.id,
-              type: "QRIS",
-              actualAmount: Number(latestQris.actualAmount),
-              note: latestQris.note || null,
-              createdAt: latestQris.createdAt instanceof Date ? latestQris.createdAt.toISOString() : latestQris.createdAt,
-              updatedAt: latestQris.updatedAt instanceof Date ? latestQris.updatedAt.toISOString() : latestQris.updatedAt,
-            }
-          : null,
-        history: recentHistory.map((h: any) => ({
-          id: h.id,
-          type: h.type,
-          actualAmount: Number(h.actualAmount),
-          note: h.note || null,
-          createdAt: h.createdAt instanceof Date ? h.createdAt.toISOString() : h.createdAt,
-          updatedAt: h.updatedAt instanceof Date ? h.updatedAt.toISOString() : h.updatedAt,
-        })),
+        cash: formatBalance(latestCash, "CASH"),
+        qris: formatBalance(latestQris, "QRIS"),
+        history: recentHistory.map((h: any) => {
+          const parsed = parseInitialFromNote(h.note);
+          const initial = h.initialAmount != null ? Number(h.initialAmount) : parsed.initialAmount;
+          return {
+            id: h.id,
+            type: h.type,
+            actualAmount: Number(h.actualAmount ?? 0),
+            initialAmount: initial,
+            note: parsed.cleanNote,
+            createdAt: h.createdAt instanceof Date ? h.createdAt.toISOString() : h.createdAt,
+            updatedAt: h.updatedAt instanceof Date ? h.updatedAt.toISOString() : h.updatedAt,
+          };
+        }),
       },
     });
   } catch (error: any) {
@@ -63,34 +85,51 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { type, actualAmount, note } = body;
+    const { type, actualAmount, initialAmount, note } = body;
 
     const normalizedType = String(type).toUpperCase() === "QRIS" ? "QRIS" : "CASH";
-    const numericAmount = Number(actualAmount);
+    const numericActual = Number(actualAmount ?? 0);
+    const numericInitial = Number(initialAmount ?? 0);
 
-    if (isNaN(numericAmount) || numericAmount < 0) {
+    if (isNaN(numericActual) || numericActual < 0) {
       return NextResponse.json(
-        { success: false, message: "Nominal saldo riil harus berupa angka positif atau nol!" },
+        { success: false, message: "Nominal saldo harus berupa angka positif atau nol!" },
         { status: 400 }
       );
     }
 
-    const created = await (prisma as any).balanceAdjustment.create({
-      data: {
-        type: normalizedType,
-        actualAmount: numericAmount,
-        note: note ? String(note).trim() : null,
-      },
-    });
+    let created: any;
+    try {
+      created = await (prisma as any).balanceAdjustment.create({
+        data: {
+          type: normalizedType,
+          actualAmount: numericActual,
+          initialAmount: numericInitial,
+          note: note ? String(note).trim() : null,
+        },
+      });
+    } catch (saveErr: any) {
+      console.warn("Fallback balanceAdjustment create without initial_amount column:", saveErr.message);
+      const augmentedNote = `[INITIAL:${numericInitial}] ${note ? String(note).trim() : ""}`.trim();
+      created = await (prisma as any).balanceAdjustment.create({
+        data: {
+          type: normalizedType,
+          actualAmount: numericActual,
+          note: augmentedNote,
+        },
+      });
+      created.initialAmount = numericInitial;
+    }
 
     return NextResponse.json({
       success: true,
-      message: `Sisa saldo ${normalizedType === "CASH" ? "Tersisa di Toko (Cash)" : "Tersisa di Bank (QRIS)"} berhasil disimpan`,
+      message: `Saldo ${normalizedType === "CASH" ? "Tersisa di Toko (Cash)" : "Tersisa di Bank (QRIS)"} berhasil disimpan`,
       data: {
         id: created.id,
         type: created.type,
-        actualAmount: Number(created.actualAmount),
-        note: created.note || null,
+        actualAmount: Number(created.actualAmount ?? numericActual),
+        initialAmount: Number(created.initialAmount ?? numericInitial),
+        note: note ? String(note).trim() : null,
         createdAt: created.createdAt instanceof Date ? created.createdAt.toISOString() : created.createdAt,
         updatedAt: created.updatedAt instanceof Date ? created.updatedAt.toISOString() : created.updatedAt,
       },

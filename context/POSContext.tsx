@@ -62,6 +62,7 @@ interface POSContextType {
   completePayment: (method: PaymentMethod, cashReceived?: number) => Transaction;
   deleteTransaction: (txId: string) => Promise<boolean>;
   deleteBulkTransactions: (txIds: string[]) => Promise<boolean>;
+  restoreTransaction: (txId: string) => Promise<boolean>;
   getDailyRecap: (dateStr?: string) => DailyRecap;
   resetQueueCounter: () => void;
   updateQrisImage: (dataUrl: string) => void;
@@ -479,21 +480,25 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // HAPUS 1 TRANSAKSI RIWAYAT PENJUALAN
+  // SOFT DELETE 1 TRANSAKSI RIWAYAT PENJUALAN
   const deleteTransaction = async (txId: string): Promise<boolean> => {
+    const targetTx = transactions.find((t) => t.id === txId);
     setTransactions((prev) => prev.filter((t) => t.id !== txId));
     try {
-      const res = await fetch(`/api/orders?id=${txId}`, {
+      const url = targetTx
+        ? `/api/orders?id=${encodeURIComponent(txId)}&amount=${targetTx.total}&queue=${encodeURIComponent(targetTx.queueNumber)}`
+        : `/api/orders?id=${encodeURIComponent(txId)}`;
+      const res = await fetch(url, {
         method: "DELETE",
       });
       return res.ok;
     } catch (err) {
-      console.error("Gagal menghapus transaksi dari database:", err);
+      console.error("Gagal soft delete transaksi dari database:", err);
       return false;
     }
   };
 
-  // HAPUS BANYAK TRANSAKSI (BULK DELETE)
+  // SOFT DELETE BANYAK TRANSAKSI (BULK DELETE)
   const deleteBulkTransactions = async (txIds: string[]): Promise<boolean> => {
     setTransactions((prev) => prev.filter((t) => !txIds.includes(t.id)));
     try {
@@ -504,7 +509,30 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
       return res.ok;
     } catch (err) {
-      console.error("Gagal menghapus transaksi dari database:", err);
+      console.error("Gagal soft delete transaksi dari database:", err);
+      return false;
+    }
+  };
+
+  // PULIHKAN (RESTORE) TRANSAKSI YANG DI-SOFT DELETE
+  const restoreTransaction = async (txId: string): Promise<boolean> => {
+    try {
+      const res = await fetch("/api/orders", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: txId }),
+      });
+      if (res.ok) {
+        const ordersRes = await fetch("/api/orders");
+        if (ordersRes.ok) {
+          const oJson = await ordersRes.json();
+          if (oJson.data) setTransactions(oJson.data);
+        }
+        return true;
+      }
+      return false;
+    } catch (err) {
+      console.error("Gagal memulihkan transaksi:", err);
       return false;
     }
   };
@@ -556,12 +584,23 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     clearCart();
     setIsMobileCartOpen(false);
 
-    // Kirim pesanan ke NeonDB
+    // Kirim pesanan ke NeonDB dan sinkronkan ID resmi dari server
     fetch("/api/orders", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(newTx),
-    }).catch((e) => console.error("Gagal simpan transaksi ke database:", e));
+    })
+      .then(async (res) => {
+        if (res.ok) {
+          const json = await res.json();
+          if (json.data?.id && json.data.id !== newTx.id) {
+            setTransactions((prev) =>
+              prev.map((t) => (t.id === newTx.id ? { ...t, id: json.data.id } : t))
+            );
+          }
+        }
+      })
+      .catch((e) => console.error("Gagal simpan transaksi ke database:", e));
 
     return newTx;
   };
@@ -653,6 +692,7 @@ export const POSProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         completePayment,
         deleteTransaction,
         deleteBulkTransactions,
+        restoreTransaction,
         getDailyRecap,
         resetQueueCounter,
         updateQrisImage,

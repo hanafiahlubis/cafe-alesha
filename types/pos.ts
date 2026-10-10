@@ -28,6 +28,7 @@ export interface Transaction {
   paymentMethod: PaymentMethod;
   cashReceived?: number;
   changeAmount?: number;
+  status?: 'COMPLETED' | 'CANCELLED';
   timestamp: string; // ISO string
   date: string; // YYYY-MM-DD
 }
@@ -65,6 +66,7 @@ export interface BalanceAdjustment {
   id: string;
   type: BalanceType;
   actualAmount: number;
+  initialAmount?: number;
   note?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -74,4 +76,34 @@ export interface StoreBalancesData {
   cash: BalanceAdjustment | null;
   qris: BalanceAdjustment | null;
   history?: BalanceAdjustment[];
+}
+
+export type ExpensePaymentMethod = 'CASH' | 'QRIS' | 'SPLIT';
+
+export interface ExpenseItem {
+  id: string;
+  title: string;
+  amount: number;
+  category: string;
+  paymentMethod?: ExpensePaymentMethod;
+  cashAmount?: number;
+  qrisAmount?: number;
+  notes?: string | null;
+  expenseDate: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface DeletedExpenseItem {
+  id: string;
+  expenseId?: string | null;
+  title: string;
+  amount: number;
+  category: string;
+  paymentMethod: ExpensePaymentMethod;
+  cashAmount: number;
+  qrisAmount: number;
+  notes?: string | null;
+  expenseDate: string;
+  deletedAt: string;
 }

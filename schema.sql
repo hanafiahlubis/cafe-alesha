@@ -99,16 +99,46 @@ CREATE TABLE IF NOT EXISTS "queues" (
 );
 
 -- 7. Tabel Pengeluaran Toko (Expenses)
+CREATE TABLE IF NOT EXISTS "Expense" (
+    "id" VARCHAR(36) PRIMARY KEY,
+    "title" VARCHAR(255) NOT NULL,
+    "amount" DECIMAL(12, 2) NOT NULL,
+    "category" VARCHAR(100) DEFAULT 'Operasional',
+    "payment_method" VARCHAR(20) DEFAULT 'CASH',
+    "cash_amount" DECIMAL(12, 2) DEFAULT 0,
+    "qris_amount" DECIMAL(12, 2) DEFAULT 0,
+    "notes" TEXT,
+    "expenseDate" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Support untuk tabel lowercase jika ada
 CREATE TABLE IF NOT EXISTS "expenses" (
     "id" VARCHAR(36) PRIMARY KEY,
     "title" VARCHAR(255) NOT NULL,
     "amount" DECIMAL(12, 2) NOT NULL,
     "category" VARCHAR(100) DEFAULT 'Operasional',
+    "payment_method" VARCHAR(20) DEFAULT 'CASH',
+    "cash_amount" DECIMAL(12, 2) DEFAULT 0,
+    "qris_amount" DECIMAL(12, 2) DEFAULT 0,
     "notes" TEXT,
     "expense_date" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- ALTER TABLE untuk menambahkan kolom jika tabel Expense sudah ada sebelumnya:
+ALTER TABLE "Expense" ADD COLUMN IF NOT EXISTS "payment_method" VARCHAR(20) DEFAULT 'CASH';
+ALTER TABLE "Expense" ADD COLUMN IF NOT EXISTS "cash_amount" DECIMAL(12, 2) DEFAULT 0;
+ALTER TABLE "Expense" ADD COLUMN IF NOT EXISTS "qris_amount" DECIMAL(12, 2) DEFAULT 0;
+ALTER TABLE "Expense" ADD COLUMN IF NOT EXISTS "paymentMethod" VARCHAR(20) DEFAULT 'CASH';
+ALTER TABLE "Expense" ADD COLUMN IF NOT EXISTS "cashAmount" DECIMAL(12, 2) DEFAULT 0;
+ALTER TABLE "Expense" ADD COLUMN IF NOT EXISTS "qrisAmount" DECIMAL(12, 2) DEFAULT 0;
+
+ALTER TABLE "expenses" ADD COLUMN IF NOT EXISTS "payment_method" VARCHAR(20) DEFAULT 'CASH';
+ALTER TABLE "expenses" ADD COLUMN IF NOT EXISTS "cash_amount" DECIMAL(12, 2) DEFAULT 0;
+ALTER TABLE "expenses" ADD COLUMN IF NOT EXISTS "qris_amount" DECIMAL(12, 2) DEFAULT 0;
 
 -- 8. FITUR 1: Tabel Pesanan Tersimpan Sementara (Saved / Pending Orders)
 CREATE TABLE IF NOT EXISTS "saved_orders" (
@@ -120,14 +150,33 @@ CREATE TABLE IF NOT EXISTS "saved_orders" (
     "updated_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 9. FITUR 2: Tabel Penyesuaian Sisa Saldo Riil Kasir & Bank (Balance Adjustments)
+-- 9. FITUR 2: Tabel Penyesuaian Saldo Riil Kasir & Bank (Balance Adjustments)
 CREATE TABLE IF NOT EXISTS "balance_adjustments" (
     "id" VARCHAR(36) PRIMARY KEY,
     "type" "BalanceType" NOT NULL,
     "actual_amount" DECIMAL(12, 2) NOT NULL,
+    "initial_amount" DECIMAL(12, 2) DEFAULT 0,
     "note" TEXT,
     "created_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ALTER TABLE untuk menambahkan kolom initial_amount jika balance_adjustments sudah ada
+ALTER TABLE "balance_adjustments" ADD COLUMN IF NOT EXISTS "initial_amount" DECIMAL(12, 2) DEFAULT 0;
+
+-- 10. FITUR 4: Tabel Riwayat Pengeluaran Dihapus (Audit Log)
+CREATE TABLE IF NOT EXISTS "history_pengeluaran_dihapus" (
+    "id" VARCHAR(36) PRIMARY KEY,
+    "expense_id" VARCHAR(36),
+    "title" VARCHAR(255) NOT NULL,
+    "amount" DECIMAL(12, 2) NOT NULL,
+    "category" VARCHAR(100) DEFAULT 'Operasional',
+    "payment_method" VARCHAR(20) DEFAULT 'CASH',
+    "cash_amount" DECIMAL(12, 2) DEFAULT 0,
+    "qris_amount" DECIMAL(12, 2) DEFAULT 0,
+    "notes" TEXT,
+    "expense_date" TIMESTAMP NOT NULL,
+    "deleted_at" TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 -- Indexes untuk optimasi query
@@ -135,3 +184,4 @@ CREATE INDEX IF NOT EXISTS "idx_orders_order_date" ON "orders"("order_date");
 CREATE INDEX IF NOT EXISTS "idx_saved_orders_created_at" ON "saved_orders"("created_at");
 CREATE INDEX IF NOT EXISTS "idx_balance_adjustments_type" ON "balance_adjustments"("type");
 CREATE INDEX IF NOT EXISTS "idx_balance_adjustments_updated_at" ON "balance_adjustments"("updated_at");
+CREATE INDEX IF NOT EXISTS "idx_history_pengeluaran_dihapus_deleted_at" ON "history_pengeluaran_dihapus"("deleted_at");

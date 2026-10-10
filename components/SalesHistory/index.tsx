@@ -6,7 +6,7 @@ import { usePOS } from "@/context/POSContext";
 import { Transaction } from "@/types/pos";
 
 export const SalesHistory: React.FC = () => {
-  const { transactions, storeInfo, deleteTransaction, deleteBulkTransactions } = usePOS();
+  const { transactions, storeInfo, deleteTransaction, deleteBulkTransactions, restoreTransaction } = usePOS();
 
   // Helper tanggal lokal YYYY-MM-DD
   const getTodayStr = () => {
@@ -37,6 +37,12 @@ export const SalesHistory: React.FC = () => {
   const [txToDelete, setTxToDelete] = useState<Transaction | null>(null);
   const [isBulkDeleting, setIsBulkDeleting] = useState<boolean>(false);
   const [isDeletingTx, setIsDeletingTx] = useState<boolean>(false);
+
+  // FITUR: State Tab Status Transaksi (Aktif vs Soft-Deleted / Cancelled)
+  const [statusTab, setStatusTab] = useState<"ACTIVE" | "CANCELLED">("ACTIVE");
+  const [cancelledTxs, setCancelledTxs] = useState<Transaction[]>([]);
+  const [isLoadingCancelled, setIsLoadingCancelled] = useState<boolean>(false);
+  const [restoringTxId, setRestoringTxId] = useState<string | null>(null);
 
   // Format IDR
   const formatIDR = (num: number) => {
@@ -69,6 +75,14 @@ export const SalesHistory: React.FC = () => {
       return methodFilter === "Semua" ? true : tx.paymentMethod === methodFilter;
     });
   }, [dateTxs, methodFilter]);
+
+  const cancelledFilteredTx = useMemo(() => {
+    return cancelledTxs.filter((tx) => {
+      return methodFilter === "Semua" ? true : tx.paymentMethod === methodFilter;
+    });
+  }, [cancelledTxs, methodFilter]);
+
+  const displayedTxs = statusTab === "ACTIVE" ? filteredTx : cancelledFilteredTx;
 
   // Kalkulasi Finansial
   const totalRevenue = dateTxs.reduce((sum, tx) => sum + tx.total, 0);
@@ -296,7 +310,31 @@ export const SalesHistory: React.FC = () => {
     }, 300);
   };
 
-  // HANDLER HAPUS 1 TRANSAKSI (LAPTOP ONLY)
+  // Fetch transaksi yang di-soft delete (dibatalkan)
+  const fetchCancelledTxs = async () => {
+    setIsLoadingCancelled(true);
+    try {
+      const res = await fetch(
+        `/api/orders?status=CANCELLED&startDate=${startDate}&endDate=${endDate}`
+      );
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data) setCancelledTxs(json.data);
+      }
+    } catch (e) {
+      console.warn("Gagal memuat transaksi dibatalkan:", e);
+    } finally {
+      setIsLoadingCancelled(false);
+    }
+  };
+
+  React.useEffect(() => {
+    if (statusTab === "CANCELLED") {
+      fetchCancelledTxs();
+    }
+  }, [statusTab, startDate, endDate]);
+
+  // HANDLER SOFT DELETE 1 TRANSAKSI (LAPTOP ONLY)
   const handleConfirmDeleteSingle = async () => {
     if (!txToDelete) return;
 
@@ -306,19 +344,20 @@ export const SalesHistory: React.FC = () => {
       const success = await deleteTransaction(txToDelete.id);
       if (success) {
         setSelectedTxIds((prev) => prev.filter((id) => id !== txToDelete.id));
-        toast.success(`Transaksi ${shortName} berhasil dihapus dari riwayat!`);
+        toast.success(`Transaksi ${shortName} berhasil di-soft delete (dibatalkan)!`);
         setTxToDelete(null);
+        if (statusTab === "CANCELLED") fetchCancelledTxs();
       } else {
-        toast.error("Gagal menghapus transaksi dari database.");
+        toast.error("Gagal membatalkan transaksi di server.");
       }
     } catch (err: any) {
-      toast.error(err.message || "Gagal menghapus transaksi");
+      toast.error(err.message || "Gagal membatalkan transaksi");
     } finally {
       setIsDeletingTx(false);
     }
   };
 
-  // HANDLER HAPUS BANYAK TRANSAKSI (BULK DELETE LAPTOP ONLY)
+  // HANDLER SOFT DELETE BANYAK TRANSAKSI (BULK DELETE LAPTOP ONLY)
   const handleConfirmDeleteBulk = async () => {
     if (selectedTxIds.length === 0) return;
 
@@ -328,15 +367,34 @@ export const SalesHistory: React.FC = () => {
       const success = await deleteBulkTransactions(selectedTxIds);
       if (success) {
         setSelectedTxIds([]);
-        toast.success(`${count} transaksi berhasil dihapus dari riwayat!`);
+        toast.success(`${count} transaksi berhasil di-soft delete (dibatalkan)!`);
         setIsBulkDeleting(false);
+        if (statusTab === "CANCELLED") fetchCancelledTxs();
       } else {
-        toast.error("Gagal menghapus transaksi yang dipilih.");
+        toast.error("Gagal membatalkan transaksi yang dipilih.");
       }
     } catch (err: any) {
-      toast.error(err.message || "Gagal menghapus transaksi");
+      toast.error(err.message || "Gagal membatalkan transaksi");
     } finally {
       setIsDeletingTx(false);
+    }
+  };
+
+  // HANDLER PULIHKAN (RESTORE) TRANSAKSI YANG DI-SOFT DELETE
+  const handleRestoreSingle = async (txId: string) => {
+    setRestoringTxId(txId);
+    try {
+      const success = await restoreTransaction(txId);
+      if (success) {
+        toast.success("Transaksi berhasil dipulihkan ke status aktif!");
+        setCancelledTxs((prev) => prev.filter((t) => t.id !== txId));
+      } else {
+        toast.error("Gagal memulihkan transaksi.");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Gagal memulihkan transaksi");
+    } finally {
+      setRestoringTxId(null);
     }
   };
 
@@ -560,17 +618,41 @@ export const SalesHistory: React.FC = () => {
         {/* TABEL DAFTAR TRANSAKSI */}
         <div className="overflow-hidden rounded-2xl bg-white dark:bg-slate-900 shadow-sm border border-blue-100 dark:border-slate-800">
           <div className="p-2.5 sm:p-3.5 bg-sky-50/50 dark:bg-slate-800/50 border-b border-blue-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={selectedTxIds.length === filteredTx.length && filteredTx.length > 0}
-                onChange={handleSelectAll}
-                className="h-4 w-4 rounded text-blue-600 cursor-pointer"
-                title="Pilih Semua"
-              />
-              <h3 className="font-bold text-slate-900 dark:text-white text-xs sm:text-sm">
-                Daftar Transaksi ({filteredTx.length})
-              </h3>
+            <div className="flex flex-wrap items-center gap-2">
+              {statusTab === "ACTIVE" && (
+                <input
+                  type="checkbox"
+                  checked={selectedTxIds.length === filteredTx.length && filteredTx.length > 0}
+                  onChange={handleSelectAll}
+                  className="h-4 w-4 rounded text-blue-600 cursor-pointer"
+                  title="Pilih Semua"
+                />
+              )}
+              {/* TAB STATUS TRANSAKSI */}
+              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                <button
+                  type="button"
+                  onClick={() => setStatusTab("ACTIVE")}
+                  className={`rounded-lg px-2.5 py-1 text-[10px] sm:text-xs font-bold transition cursor-pointer flex items-center gap-1 ${
+                    statusTab === "ACTIVE"
+                      ? "bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm"
+                      : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                  }`}
+                >
+                  <span>✅ Aktif ({filteredTx.length})</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusTab("CANCELLED")}
+                  className={`rounded-lg px-2.5 py-1 text-[10px] sm:text-xs font-bold transition cursor-pointer flex items-center gap-1 ${
+                    statusTab === "CANCELLED"
+                      ? "bg-white dark:bg-slate-900 text-rose-600 dark:text-rose-400 shadow-sm"
+                      : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
+                  }`}
+                >
+                  <span>🚫 Dibatalkan ({cancelledFilteredTx.length})</span>
+                </button>
+              </div>
             </div>
             <div className="flex items-center gap-1">
               {["Semua", "Cash", "QRIS"].map((m) => (
@@ -578,10 +660,11 @@ export const SalesHistory: React.FC = () => {
                   key={m}
                   type="button"
                   onClick={() => setMethodFilter(m)}
-                  className={`rounded-lg px-2.5 py-1 text-[10px] sm:text-xs font-bold transition cursor-pointer ${methodFilter === m
+                  className={`rounded-lg px-2.5 py-1 text-[10px] sm:text-xs font-bold transition cursor-pointer ${
+                    methodFilter === m
                       ? "bg-blue-600 text-white shadow-sm"
                       : "bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-300 border border-blue-100 dark:border-transparent hover:bg-blue-50"
-                    }`}
+                  }`}
                 >
                   {m}
                 </button>
@@ -591,7 +674,7 @@ export const SalesHistory: React.FC = () => {
 
           {/* TAMPILAN MOBILE (KARTU - BERSIH TANPA TOMBOL HAPUS, SESUAI REQUEST KHUSUS LAPTOP) */}
           <div className="sm:hidden divide-y divide-blue-50 dark:divide-slate-800 p-2 space-y-2">
-            {filteredTx.map((tx) => {
+            {displayedTxs.map((tx) => {
               const isSelected = selectedTxIds.includes(tx.id);
               return (
                 <div
@@ -599,10 +682,11 @@ export const SalesHistory: React.FC = () => {
                   onTouchStart={() => handleTouchStart(tx.id)}
                   onTouchEnd={handleTouchEnd}
                   onClick={() => selectedTxIds.length > 0 && toggleSelectTx(tx.id)}
-                  className={`p-2.5 sm:p-3 rounded-xl space-y-2 border transition cursor-pointer select-none ${isSelected
+                  className={`p-2.5 sm:p-3 rounded-xl space-y-2 border transition cursor-pointer select-none ${
+                    isSelected
                       ? "bg-blue-50/90 dark:bg-blue-950/70 border-blue-300 dark:border-blue-700 shadow-sm"
                       : "bg-sky-50/30 dark:bg-slate-800/40 border-blue-100/60 dark:border-slate-800 hover:border-blue-200"
-                    }`}
+                  }`}
                 >
                   <div className="flex items-center justify-between gap-1">
                     <div className="flex items-center gap-2 min-w-0">
@@ -624,10 +708,11 @@ export const SalesHistory: React.FC = () => {
                       </div>
                     </div>
                     <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold ${tx.paymentMethod === "Cash"
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-bold ${
+                        tx.paymentMethod === "Cash"
                           ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
                           : "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-300"
-                        }`}
+                      }`}
                     >
                       {tx.paymentMethod === "Cash" ? "💵 Cash" : "📱 QRIS"}
                     </span>
@@ -689,16 +774,17 @@ export const SalesHistory: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-blue-50 dark:divide-slate-800">
-                {filteredTx.map((tx) => {
+                {displayedTxs.map((tx) => {
                   const isSelected = selectedTxIds.includes(tx.id);
                   return (
                     <tr
                       key={tx.id}
                       onClick={() => toggleSelectTx(tx.id)}
-                      className={`transition cursor-pointer ${isSelected
+                      className={`transition cursor-pointer ${
+                        isSelected
                           ? "bg-blue-50/70 dark:bg-blue-950/50"
                           : "hover:bg-blue-50/30 dark:hover:bg-slate-800/40"
-                        }`}
+                      }`}
                     >
                       <td className="pl-4 pr-1 py-4" onClick={(e) => e.stopPropagation()}>
                         <input
@@ -737,10 +823,11 @@ export const SalesHistory: React.FC = () => {
                       </td>
                       <td className="px-4 py-4">
                         <span
-                          className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${tx.paymentMethod === "Cash"
+                          className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${
+                            tx.paymentMethod === "Cash"
                               ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950/70 dark:text-emerald-300"
                               : "bg-blue-100 text-blue-800 dark:bg-blue-950/70 dark:text-blue-300"
-                            }`}
+                          }`}
                         >
                           {tx.paymentMethod === "Cash" ? "💵 Cash" : "📱 QRIS"}
                         </span>
@@ -749,19 +836,32 @@ export const SalesHistory: React.FC = () => {
                         {formatIDR(tx.total)}
                       </td>
 
-                      {/* Tombol Hapus 1 Transaksi di Laptop */}
+                      {/* Kolom Aksi Khusus Laptop: Hapus (Soft Delete) atau Pulihkan */}
                       <td className="px-4 py-4 text-center" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          onClick={() => setTxToDelete(tx)}
-                          className="inline-flex items-center gap-1 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/70 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 px-2.5 py-1 text-xs font-bold transition active:scale-95 cursor-pointer shadow-sm"
-                          title="Hapus Transaksi Ini"
-                        >
-                          <svg className="w-3.5 h-3.5 fill-none stroke-current" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                          <span>Hapus</span>
-                        </button>
+                        {statusTab === "ACTIVE" ? (
+                          <button
+                            type="button"
+                            onClick={() => setTxToDelete(tx)}
+                            className="inline-flex items-center gap-1 rounded-xl border border-rose-200 dark:border-rose-900/60 bg-rose-50/70 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 px-2.5 py-1 text-xs font-bold transition active:scale-95 cursor-pointer shadow-sm"
+                            title="Batalkan / Soft Delete Transaksi"
+                          >
+                            <svg className="w-3.5 h-3.5 fill-none stroke-current" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            <span>Hapus</span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={restoringTxId === tx.id}
+                            onClick={() => handleRestoreSingle(tx.id)}
+                            className="inline-flex items-center gap-1 rounded-xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50/70 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 px-2.5 py-1 text-xs font-bold transition active:scale-95 cursor-pointer shadow-sm"
+                            title="Pulihkan Transaksi ke Aktif"
+                          >
+                            <span>🔄</span>
+                            <span>{restoringTxId === tx.id ? "Memulihkan..." : "Pulihkan"}</span>
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -770,9 +870,11 @@ export const SalesHistory: React.FC = () => {
             </table>
           </div>
 
-          {filteredTx.length === 0 && (
+          {displayedTxs.length === 0 && (
             <div className="p-6 text-center text-xs text-slate-500">
-              Belum ada transaksi tercatat untuk rentang tanggal ini.
+              {statusTab === "ACTIVE"
+                ? "Belum ada transaksi aktif untuk rentang tanggal ini."
+                : "Tidak ada transaksi yang dibatalkan (soft delete) untuk rentang tanggal ini."}
             </div>
           )}
         </div>
@@ -783,15 +885,15 @@ export const SalesHistory: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm animate-fadeIn">
           <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-2xl border border-rose-200 dark:border-rose-900/60 space-y-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-100 dark:bg-rose-950/80 text-rose-600 text-2xl shadow-inner">
-                🗑️
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 dark:bg-amber-950/80 text-amber-600 text-2xl shadow-inner">
+                ⚠️
               </div>
               <div>
                 <h4 className="font-black text-base text-slate-900 dark:text-white leading-tight">
-                  Hapus Transaksi Penjualan?
+                  Batalkan Transaksi (Soft Delete)?
                 </h4>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Transaksi akan dihapus permanen dari riwayat database.
+                  Data tetap tersimpan di database sebagai arsip pembatalan.
                 </p>
               </div>
             </div>
@@ -830,8 +932,8 @@ export const SalesHistory: React.FC = () => {
               </div>
             </div>
 
-            <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium bg-amber-50 dark:bg-amber-950/40 p-2.5 rounded-xl border border-amber-200 dark:border-amber-900">
-              ⚠️ Peringatan: Menghapus transaksi ini akan otomatis mengurangi kalkulasi total omzet dan laporan keuangan toko.
+            <p className="text-[11px] text-blue-700 dark:text-blue-300 font-medium bg-blue-50 dark:bg-blue-950/40 p-2.5 rounded-xl border border-blue-200 dark:border-blue-900">
+              ℹ️ <strong>Soft Delete:</strong> Data transaksi tidak dihapus dari database. Statusnya diubah menjadi <strong>CANCELLED</strong> sehingga tidak dihitung dalam total omzet dan dapat dipulihkan sewaktu-waktu.
             </p>
 
             <div className="grid grid-cols-2 gap-2 pt-1">
@@ -849,7 +951,7 @@ export const SalesHistory: React.FC = () => {
                 onClick={handleConfirmDeleteSingle}
                 className="w-full rounded-xl bg-rose-600 hover:bg-rose-700 py-2.5 text-xs font-bold text-white shadow-md shadow-rose-600/30 transition active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
               >
-                {isDeletingTx ? "Menghapus..." : "Ya, Hapus Transaksi"}
+                {isDeletingTx ? "Memproses..." : "Ya, Batalkan Transaksi"}
               </button>
             </div>
           </div>
@@ -861,15 +963,15 @@ export const SalesHistory: React.FC = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm animate-fadeIn">
           <div className="w-full max-w-md rounded-3xl bg-white dark:bg-slate-900 p-5 sm:p-6 shadow-2xl border border-rose-200 dark:border-rose-900/60 space-y-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-rose-100 dark:bg-rose-950/80 text-rose-600 text-2xl shadow-inner">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-amber-100 dark:bg-amber-950/80 text-amber-600 text-2xl shadow-inner">
                 ⚠️
               </div>
               <div>
                 <h4 className="font-black text-base text-slate-900 dark:text-white leading-tight">
-                  Hapus {selectedTxIds.length} Transaksi Terpilih?
+                  Batalkan {selectedTxIds.length} Transaksi Terpilih (Soft Delete)?
                 </h4>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Seluruh struk transaksi terpilih akan dihapus permanen.
+                  Status transaksi akan diubah ke CANCELLED tanpa menghapus data dari database.
                 </p>
               </div>
             </div>
@@ -902,7 +1004,7 @@ export const SalesHistory: React.FC = () => {
                 onClick={handleConfirmDeleteBulk}
                 className="w-full rounded-xl bg-rose-600 hover:bg-rose-700 py-2.5 text-xs font-bold text-white shadow-md shadow-rose-600/30 transition active:scale-95 cursor-pointer flex items-center justify-center gap-1.5"
               >
-                {isDeletingTx ? "Menghapus..." : `Ya, Hapus (${selectedTxIds.length})`}
+                {isDeletingTx ? "Memproses..." : `Ya, Batalkan (${selectedTxIds.length}) Struk`}
               </button>
             </div>
           </div>
