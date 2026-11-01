@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import toast from "react-hot-toast";
 import { usePOS } from "@/context/POSContext";
 import { SavedOrder } from "@/types/pos";
+import { Pagination } from "@/components/Common/Pagination";
 
 interface SavedOrdersModalProps {
   isOpen: boolean;
@@ -36,6 +37,16 @@ export const SavedOrdersModal: React.FC<SavedOrdersModalProps> = ({
   const filteredOrders = savedOrders.filter((order) =>
     order.orderName.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const [page, setPage] = useState<number>(1);
+  const [perPage, setPerPage] = useState<number>(4);
+
+  React.useEffect(() => {
+    setPage(1);
+  }, [searchQuery]);
+
+  const totalPages = Math.ceil(filteredOrders.length / perPage) || 1;
+  const paginatedOrders = filteredOrders.slice((page - 1) * perPage, page * perPage);
 
   const formatIDR = (num: number) => {
     return new Intl.NumberFormat("id-ID", {
@@ -183,7 +194,7 @@ export const SavedOrdersModal: React.FC<SavedOrdersModalProps> = ({
               Tidak ada pesanan tersimpan yang cocok dengan pencarian "{searchQuery}".
             </div>
           ) : (
-            filteredOrders.map((order) => {
+            paginatedOrders.map((order) => {
               const totalItems = order.items.reduce(
                 (sum, item) => sum + item.quantity,
                 0
@@ -284,6 +295,18 @@ export const SavedOrdersModal: React.FC<SavedOrdersModalProps> = ({
                 </div>
               );
             })
+          )}
+          {filteredOrders.length > 0 && (
+            <Pagination
+              currentPage={page}
+              totalPages={totalPages}
+              totalItems={filteredOrders.length}
+              itemsPerPage={perPage}
+              itemsPerPageOptions={[3, 4, 8]}
+              onPageChange={setPage}
+              onItemsPerPageChange={setPerPage}
+              itemName="pesanan tersimpan"
+            />
           )}
         </div>
 

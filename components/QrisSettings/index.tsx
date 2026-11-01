@@ -108,7 +108,7 @@ export const QrisSettings: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#F0F7FF] dark:bg-slate-950 pt-2 sm:pt-20 pb-16 text-slate-900 dark:text-slate-50 transition-colors duration-200">
+    <div className="min-h-screen bg-[#F0F7FF] dark:bg-slate-950 pt-16 sm:pt-20 pb-16 text-slate-900 dark:text-slate-50 transition-colors duration-200">
       <div className="mx-auto max-w-7xl px-3 sm:px-6 lg:px-8 space-y-4">
         {/* Header Banner */}
         <div className="rounded-2xl bg-white dark:bg-slate-900 p-4 shadow-sm border border-blue-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">

@@ -7,6 +7,7 @@ import { PaymentModal } from "./PaymentModal";
 import { ReceiptModal } from "./ReceiptModal";
 import { SaveOrderModal } from "./SaveOrderModal";
 import { SavedOrdersModal } from "./SavedOrdersModal";
+import { Pagination } from "@/components/Common/Pagination";
 
 export const PosTerminal: React.FC = () => {
   const {
@@ -53,6 +54,20 @@ export const PosTerminal: React.FC = () => {
       return matchCategory && matchSearch;
     });
   }, [menuList, activeCategory, searchQuery]);
+
+  // State Pagination Katalog Menu Kasir
+  const [menuPage, setMenuPage] = useState<number>(1);
+  const [menuPerPage, setMenuPerPage] = useState<number>(12);
+
+  React.useEffect(() => {
+    setMenuPage(1);
+  }, [activeCategory, searchQuery]);
+
+  const totalMenuPages = Math.ceil(filteredMenu.length / menuPerPage) || 1;
+  const paginatedMenu = useMemo(() => {
+    const start = (menuPage - 1) * menuPerPage;
+    return filteredMenu.slice(start, start + menuPerPage);
+  }, [filteredMenu, menuPage, menuPerPage]);
 
   const subtotal = cart.reduce(
     (sum, item) => sum + item.menuItem.price * item.quantity,
@@ -230,8 +245,9 @@ export const PosTerminal: React.FC = () => {
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-2.5">
-                {filteredMenu.map((item) => {
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-2.5">
+                {paginatedMenu.map((item) => {
                   const isSoldOut = item.status === "Habis";
                   const cartItem = cart.find((c) => c.menuItem.id === item.id);
                   const inCartQty = cartItem?.quantity || 0;
@@ -297,6 +313,22 @@ export const PosTerminal: React.FC = () => {
                   );
                 })}
               </div>
+
+              {filteredMenu.length > 0 && (
+                <div className="rounded-2xl overflow-hidden bg-white dark:bg-slate-900 border border-blue-100 dark:border-slate-800 shadow-sm mt-3">
+                  <Pagination
+                    currentPage={menuPage}
+                    totalPages={totalMenuPages}
+                    totalItems={filteredMenu.length}
+                    itemsPerPage={menuPerPage}
+                    itemsPerPageOptions={[8, 12, 16, 24]}
+                    onPageChange={setMenuPage}
+                    onItemsPerPageChange={setMenuPerPage}
+                    itemName="menu kasir"
+                  />
+                </div>
+              )}
+              </>
             )}
           </div>
 

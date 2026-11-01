@@ -48,24 +48,37 @@ export async function GET(req: NextRequest) {
 
     const orders = await prisma.order.findMany({
       where: whereClause,
-      include: { items: true },
+      include: {
+        items: {
+          include: {
+            menu: {
+              include: {
+                category: true,
+              },
+            },
+          },
+        },
+      },
       orderBy: { createdAt: "desc" },
     });
 
     const mapped = orders.map((o) => ({
       id: o.id,
       queueNumber: o.queueNumber,
-      items: o.items.map((it) => ({
-        menuItem: {
-          id: it.menuId,
-          name: it.menuName,
-          category: "Minuman" as const,
-          price: Number(it.price),
-          description: "",
-          status: "Tersedia" as const,
-        },
-        quantity: it.quantity,
-      })),
+      items: o.items.map((it: any) => {
+        const catName = it.menu?.category?.name || "Minuman";
+        return {
+          menuItem: {
+            id: it.menuId,
+            name: it.menuName,
+            category: catName as "Minuman" | "Makanan Ringan" | "Makanan Berat",
+            price: Number(it.price),
+            description: it.menu?.description || "",
+            status: (it.menu?.status === "HABIS" ? "Habis" : "Tersedia") as "Tersedia" | "Habis",
+          },
+          quantity: it.quantity,
+        };
+      }),
       subtotal: Number(o.totalAmount),
       tax: 0,
       total: Number(o.totalAmount),

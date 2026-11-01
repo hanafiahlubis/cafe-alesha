@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import toast from "react-hot-toast";
 import { usePOS } from "@/context/POSContext";
 import { ExpenseItem, DeletedExpenseItem, ExpensePaymentMethod } from "@/types/pos";
+import { Pagination } from "@/components/Common/Pagination";
 
 interface FinancialSummary {
     totalRevenue: number;
@@ -60,6 +61,12 @@ export const ExpenseManagement: React.FC = () => {
     });
     const [isLoading, setIsLoading] = useState<boolean>(false);
 
+    // State Pagination Pengeluaran & Riwayat Dihapus
+    const [expensePage, setExpensePage] = useState<number>(1);
+    const [expensesPerPage, setExpensesPerPage] = useState<number>(10);
+    const [deletedPage, setDeletedPage] = useState<number>(1);
+    const [deletedPerPage, setDeletedPerPage] = useState<number>(10);
+
     // FITUR 1: State Saldo Awal & Saldo Akhir Kas & Bank QRIS
     const [cashBalance, setCashBalance] = useState<BalanceItem | null>(null);
     const [qrisBalance, setQrisBalance] = useState<BalanceItem | null>(null);
@@ -96,6 +103,24 @@ export const ExpenseManagement: React.FC = () => {
     const [isLoadingDeleted, setIsLoadingDeleted] = useState<boolean>(false);
     const [showDeletedHistory, setShowDeletedHistory] = useState<boolean>(true);
     const [restoringId, setRestoringId] = useState<string | null>(null);
+
+    // Reset pagination saat rentang tanggal berubah
+    useEffect(() => {
+        setExpensePage(1);
+        setDeletedPage(1);
+    }, [startDate, endDate]);
+
+    const totalExpensePages = Math.ceil(expenses.length / expensesPerPage) || 1;
+    const paginatedExpenses = useMemo(() => {
+        const start = (expensePage - 1) * expensesPerPage;
+        return expenses.slice(start, start + expensesPerPage);
+    }, [expenses, expensePage, expensesPerPage]);
+
+    const totalDeletedPages = Math.ceil(deletedExpenses.length / deletedPerPage) || 1;
+    const paginatedDeletedExpenses = useMemo(() => {
+        const start = (deletedPage - 1) * deletedPerPage;
+        return deletedExpenses.slice(start, start + deletedPerPage);
+    }, [deletedExpenses, deletedPage, deletedPerPage]);
 
     const formatIDR = (val: number) => {
         return new Intl.NumberFormat("id-ID", {
@@ -511,7 +536,7 @@ export const ExpenseManagement: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen bg-[#F0F7FF] dark:bg-slate-950 pt-2 sm:pt-20 pb-32 text-slate-900 dark:text-slate-50 transition-colors duration-200 overflow-x-hidden">
+        <div className="min-h-screen bg-[#F0F7FF] dark:bg-slate-950 pt-16 sm:pt-20 pb-32 text-slate-900 dark:text-slate-50 transition-colors duration-200 overflow-x-hidden">
             <div className="mx-auto max-w-7xl px-2.5 sm:px-4 lg:px-8 space-y-3 sm:space-y-4">
                 {/* HEADER & DATE RANGE FILTER */}
                 <div className="rounded-2xl bg-white dark:bg-slate-900 p-3 sm:p-4 shadow-sm border border-blue-100 dark:border-slate-800 space-y-2.5">
@@ -867,7 +892,7 @@ export const ExpenseManagement: React.FC = () => {
 
                     {/* TAMPILAN MOBILE */}
                     <div className="sm:hidden divide-y divide-blue-50 dark:divide-slate-800 p-2 space-y-2">
-                        {expenses.map((exp) => {
+                        {paginatedExpenses.map((exp) => {
                             const method = exp.paymentMethod || "CASH";
                             return (
                                 <div
@@ -983,7 +1008,7 @@ export const ExpenseManagement: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-blue-50 dark:divide-slate-800">
-                                {expenses.map((exp) => {
+                                {paginatedExpenses.map((exp) => {
                                     const method = exp.paymentMethod || "CASH";
                                     return (
                                         <tr key={exp.id} className="hover:bg-blue-50/30 transition">
@@ -1057,7 +1082,29 @@ export const ExpenseManagement: React.FC = () => {
                     {expenses.length === 0 && !isLoading && (
                         <div className="p-8 text-center text-xs text-slate-400">
                             Belum ada catatan pengeluaran pada rentang tanggal yang dipilih.
+                            {deletedExpenses.length > 0 && (
+                                <Pagination
+                                    currentPage={deletedPage}
+                                    totalPages={totalDeletedPages}
+                                    totalItems={deletedExpenses.length}
+                                    itemsPerPage={deletedPerPage}
+                                    onPageChange={setDeletedPage}
+                                    onItemsPerPageChange={setDeletedPerPage}
+                                    itemName="riwayat dihapus"
+                                />
+                            )}
                         </div>
+                    )}
+                    {expenses.length > 0 && (
+                        <Pagination
+                            currentPage={expensePage}
+                            totalPages={totalExpensePages}
+                            totalItems={expenses.length}
+                            itemsPerPage={expensesPerPage}
+                            onPageChange={setExpensePage}
+                            onItemsPerPageChange={setExpensesPerPage}
+                            itemName="pengeluaran"
+                        />
                     )}
                 </div>
 
@@ -1094,7 +1141,7 @@ export const ExpenseManagement: React.FC = () => {
                         <div>
                             {/* MOBILE LIST AUDIT LOG */}
                             <div className="sm:hidden divide-y divide-slate-100 dark:divide-slate-800 p-2 space-y-2">
-                                {deletedExpenses.map((del) => (
+                                {paginatedDeletedExpenses.map((del) => (
                                     <div
                                         key={del.id}
                                         className="p-2.5 bg-slate-50/60 dark:bg-slate-800/30 rounded-xl space-y-1.5 border border-slate-200/60 dark:border-slate-800 text-xs"
@@ -1160,7 +1207,7 @@ export const ExpenseManagement: React.FC = () => {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                        {deletedExpenses.map((del) => (
+                                        {paginatedDeletedExpenses.map((del) => (
                                             <tr key={del.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/20 transition">
                                                 <td className="px-4 py-2.5 font-mono text-[11px] text-slate-400 whitespace-nowrap">
                                                     {formatDateTime(del.deletedAt)}
@@ -1217,6 +1264,17 @@ export const ExpenseManagement: React.FC = () => {
                                 <div className="p-6 text-center text-xs text-slate-400">
                                     Belum ada riwayat pengeluaran yang dihapus.
                                 </div>
+                            )}
+                            {deletedExpenses.length > 0 && (
+                                <Pagination
+                                    currentPage={deletedPage}
+                                    totalPages={totalDeletedPages}
+                                    totalItems={deletedExpenses.length}
+                                    itemsPerPage={deletedPerPage}
+                                    onPageChange={setDeletedPage}
+                                    onItemsPerPageChange={setDeletedPerPage}
+                                    itemName="riwayat dihapus"
+                                />
                             )}
                         </div>
                     )}
