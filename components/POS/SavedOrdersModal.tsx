@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import toast from "react-hot-toast";
 import { usePOS } from "@/context/POSContext";
 import { SavedOrder } from "@/types/pos";
@@ -32,18 +32,28 @@ export const SavedOrdersModal: React.FC<SavedOrdersModalProps> = ({
   const [orderToDelete, setOrderToDelete] = useState<SavedOrder | null>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
+  // State Pagination (dideklarasikan sebelum conditional return untuk mematuhi aturan Hooks React)
+  const [page, setPage] = useState<number>(1);
+  const [perPage, setPerPage] = useState<number>(4);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setPage(1);
+      setSearchQuery("");
+      setConfirmLoadOrder(null);
+      setOrderToDelete(null);
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const filteredOrders = savedOrders.filter((order) =>
     order.orderName.toLowerCase().includes(searchQuery.toLowerCase())
   );
-
-  const [page, setPage] = useState<number>(1);
-  const [perPage, setPerPage] = useState<number>(4);
-
-  React.useEffect(() => {
-    setPage(1);
-  }, [searchQuery]);
 
   const totalPages = Math.ceil(filteredOrders.length / perPage) || 1;
   const paginatedOrders = filteredOrders.slice((page - 1) * perPage, page * perPage);
